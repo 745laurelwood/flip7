@@ -84,6 +84,33 @@ describe('busting', () => {
     // The duplicate never joins the line, and the used card leaves it.
     expect(state.players[0].line.filter(c => c.kind === 'number')).toHaveLength(1);
     expect(state.players[0].line.some(c => c.kind === 'action')).toBe(false);
+    // Neither card is anywhere on the table afterwards, so the save is the
+    // only record of what happened.
+    expect(state.lastSave).toEqual({ playerIndex: 0, value: 7, seq: 1 });
+  });
+
+  it('counts each save, so a resent state does not read as a new one', () => {
+    const start = table(1, [
+      act('secondChance', '1'), num(7, 'a'), num(7, 'b'),
+      act('secondChance', '2'), num(4, 'a'), num(4, 'b'),
+    ]);
+    expect(start.lastSave).toBeNull();
+
+    const first = run(start, hit(0), hit(0), hit(0));
+    expect(first.lastSave).toEqual({ playerIndex: 0, value: 7, seq: 1 });
+
+    const second = run(first, hit(0), hit(0), hit(0));
+    expect(second.lastSave).toEqual({ playerIndex: 0, value: 4, seq: 2 });
+  });
+
+  it('leaves the save alone when the next duplicate actually busts', () => {
+    const saved = run(
+      table(1, [act('secondChance'), num(7, 'a'), num(7, 'b'), num(4, 'a'), num(4, 'b')]),
+      hit(0), hit(0), hit(0),
+    );
+    const busted = run(saved, hit(0), hit(0));
+    expect(busted.players[0].status).toBe('busted');
+    expect(busted.lastSave).toEqual(saved.lastSave);
   });
 
   it('busts on the next duplicate once the Second Chance is gone', () => {

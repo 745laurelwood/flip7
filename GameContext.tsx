@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import { GameState } from './types';
+import { GameState, SaveMoment } from './types';
 import { Action } from './gameReducer';
 
 export interface GameContextValue {
@@ -21,6 +21,9 @@ export interface GameContextValue {
 
   /** The card that landed most recently, for the ring that marks it. */
   freshCardId: string | null;
+
+  /** A Second Chance spent in the last few seconds, while it is being shown. */
+  save: SaveMoment | null;
 
   startRound: () => void;
   returnToLobby: () => void;

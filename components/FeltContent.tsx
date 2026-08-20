@@ -14,7 +14,7 @@ const AIM_HINT: Record<ActionKind, string> = {
 /** The table: every seat's line, the draw pile, and whatever is being asked. */
 export const FeltContent: React.FC = () => {
   const {
-    state, myIndex, awaitingMyAim, legalTargets, executeAim, freshCardId,
+    state, myIndex, awaitingMyAim, legalTargets, executeAim, freshCardId, save,
   } = useGame();
 
   const pending = state.pendingAction;
@@ -71,6 +71,7 @@ export const FeltContent: React.FC = () => {
             targetable={awaitingMyAim && legalTargets.includes(p.id)}
             onTarget={() => executeAim(p.id)}
             freshCardId={freshCardId}
+            saved={save?.playerIndex === p.id}
           />
         ))}
       </div>

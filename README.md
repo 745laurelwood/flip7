@@ -77,4 +77,6 @@ The printed deck is the reference: a number is a pale card with the numeral fill
 
 The one place we go further than the cardboard is colour. On the table every number card looks alike, because the deck itself tells you the odds — there is one 1 and there are twelve 12s, so a 12 is the card most likely to come back and bust you. On a screen that is invisible, so the numbers run cool to hot: a slate 0 through to a hot magenta 12. The colour only shows you what the deck list already says.
 
+A Second Chance being spent is the one moment with nothing left to look at afterwards: the duplicate and the Second Chance both go straight to the discard, so all that changes in a line is a card disappearing. The reducer records the save, and the table holds the two cards up for a couple of seconds. It does that above everything else, including the round summary, because a save is often followed by everyone else staying out in quick succession and the round ending should not cut the news short.
+
 Sizes come off one token. `--f7-w` sets the width, the aspect ratio fixes the height, and the card's font size is derived from its width — so every part of a face is written in `em` and one number rescales the whole thing. See `theme.ts` for the palette and the words.

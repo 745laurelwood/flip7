@@ -89,6 +89,25 @@ export interface FlipThreeRun {
   deferred: ActionCard[];
 }
 
+/**
+ * The most recent Second Chance spent.
+ *
+ * A save leaves nothing behind in a line: the duplicate and the Second Chance
+ * both go straight to the discard, so the only thing that changes is a card
+ * quietly disappearing. This is what the table has to work from to show it.
+ */
+export interface SaveMoment {
+  playerIndex: number;
+  /** The number that would have busted them. */
+  value: number;
+  /**
+   * Bumped on every save, and monotonic for the life of a match. The table
+   * watches this rather than the object, so a rebroadcast of the same state
+   * does not read as a second save.
+   */
+  seq: number;
+}
+
 export interface ChatMessage {
   id: string;
   playerIndex: number;
@@ -119,6 +138,9 @@ export interface GameState {
 
   /** Seat that ended the round by flipping seven, or -1. */
   flipped7By: number;
+
+  /** The last Second Chance spent, or null if none has been this match. */
+  lastSave: SaveMoment | null;
 
   gameLog: string[];
   chatLog: ChatMessage[];
