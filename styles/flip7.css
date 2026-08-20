@@ -1,0 +1,29 @@
+/* Flip 7's deltas on top of @laurelwood/card-class. Imported after the package
+   stylesheet so these win: same specificity, later wins.
+
+   Flip 7 is not played around a table. Every card is face up in a row in front
+   of its owner, so the page is a stack of lines rather than a felt with seats
+   around it — none of the grid tokens apply here. What the skin is doing for
+   this game is the palette, the panels, the log, the lobby and the buttons. */
+
+:root {
+  /* Warmer than the trick-taking games: this is a party game, and the card
+     faces are pale, so the ground goes a little greener to sit under them. */
+  --bg:       #0a2f33;
+  --felt:     #0d1f21;
+  --felt-rim: #16302f;
+  --accent:   #6fd7c4;
+  --accent-soft: #3a7f75;
+  --accent-glow: rgba(111,215,196,0.25);
+}
+
+/* The accent button's gradient is hard-coded blue in the package, so it needs
+   restating for the new accent rather than a token. */
+.btn-accent {
+  background: linear-gradient(180deg, #8ee6d6 0%, var(--accent) 100%);
+  border-color: var(--accent);
+  box-shadow:
+    0 4px 12px rgba(111,215,196,0.32),
+    0 0 0 1px rgba(111,215,196,0.3) inset,
+    0 -1px 0 rgba(0,0,0,0.1) inset;
+}
