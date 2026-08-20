@@ -4,7 +4,10 @@
    Flip 7 is not played around a table. Every card is face up in a row in front
    of its owner, so the page is a stack of lines rather than a felt with seats
    around it — none of the grid tokens apply here. What the skin is doing for
-   this game is the palette, the panels, the log, the lobby and the buttons. */
+   this game is the palette, the panels, the log, the lobby and the buttons.
+
+   The deck itself is drawn from scratch below, because there is no suit and no
+   rank for the skin's CardComponent to put on a card. */
 
 :root {
   /* Warmer than the trick-taking games: this is a party game, and the card
@@ -26,4 +29,365 @@
     0 4px 12px rgba(111,215,196,0.32),
     0 0 0 1px rgba(111,215,196,0.3) inset,
     0 -1px 0 rgba(0,0,0,0.1) inset;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   THE DECK
+   ══════════════════════════════════════════════════════════════════
+   A card sizes itself from one number. `--f7-w` sets the width, the
+   aspect ratio fixes the height at the usual 5:7, and the font size
+   is derived from the width — so every piece of the face is written
+   in `em` and the whole thing rescales from that single token. */
+
+.f7-card {
+  --f7-w: 3.4rem;
+  --f7-band: 1.08em;      /* room reserved at the foot for the word */
+
+  position: relative;
+  box-sizing: border-box;
+  flex: none;
+  width: var(--f7-w);
+  aspect-ratio: 5 / 7;
+  font-size: calc(var(--f7-w) / 4);
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif;
+  font-weight: 600;
+  line-height: 1;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: var(--f7-band);
+
+  border-radius: calc(var(--f7-w) * 0.13);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.10) inset,
+    0 2px 7px rgba(0,0,0,0.55);
+  transition: filter .25s ease, transform .25s cubic-bezier(.22,1,.36,1);
+}
+
+.f7-card--sm { --f7-w: 2.5rem; }
+.f7-card--md { --f7-w: 3.4rem; }
+.f7-card--lg { --f7-w: 5.4rem; }
+
+@media (min-width: 640px) {
+  .f7-card--md { --f7-w: 3.9rem; }
+  .f7-card--lg { --f7-w: 6.2rem; }
+}
+
+/* ── The word along the foot ──────────────────────────────────────
+   Never smaller than 6.5px however small the card gets: below that
+   it stops being a word and starts being a smudge. */
+
+.f7-band {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: var(--f7-band);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.f7-word {
+  font-size: max(6.5px, 0.42em);
+  font-weight: 700;
+  line-height: 1.18;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;   /* letter-spacing pads the right; put it back */
+}
+
+/* ── Number cards ─────────────────────────────────────────────────
+   Pale stock, the numeral filling it, the number spelled out below,
+   and the card's colour on the border, the index and the band. */
+
+.f7-number {
+  background:
+    radial-gradient(120% 88% at 50% 28%, rgb(var(--hue) / 0.13), transparent 70%),
+    linear-gradient(178deg, #fdfbf3 0%, #f3ede1 62%, #e6ddcd 100%);
+  color: rgb(var(--ink));
+  box-shadow:
+    0 0 0 1.5px rgb(var(--hue) / 0.9) inset,
+    0 2px 7px rgba(0,0,0,0.55);
+}
+
+/* The bit of colour the printed card carries in its corner. */
+.f7-number::before {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 1.55em; height: 1.55em;
+  background: linear-gradient(225deg, rgb(var(--hue) / 0.5) 0%, rgb(var(--hue) / 0) 74%);
+  pointer-events: none;
+}
+
+.f7-numeral {
+  font-size: 1.95em;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+}
+
+/* The index carries the numeral's ink, not the card's colour: the lighter
+   hues in the middle of the ramp wash out against the stock. */
+.f7-index {
+  position: absolute;
+  top: 0.36em; left: 0.44em;
+  font-size: 0.58em;
+  font-weight: 700;
+  color: rgb(var(--ink));
+}
+
+.f7-number .f7-band {
+  background: rgb(var(--hue));
+  color: #fffdf7;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.28);
+}
+
+/* ── Modifier cards ───────────────────────────────────────────────
+   Orange, like the printed ones. The x2 gets a gold rim and a set of
+   rays because it is the only card that can double a whole line. */
+
+.f7-mod {
+  background:
+    radial-gradient(110% 82% at 50% 22%, rgba(255,228,172,0.4), transparent 68%),
+    linear-gradient(168deg, #f0932f 0%, #db721c 55%, #bc5a12 100%);
+  color: #fff6e6;
+  box-shadow:
+    0 0 0 1.5px rgba(255,214,145,0.5) inset,
+    0 2px 7px rgba(0,0,0,0.55);
+}
+
+.f7-mod .f7-band { background: rgba(72,29,4,0.4); }
+
+.f7-glyph {
+  position: relative;
+  font-size: 1.42em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-shadow: 0 1px 0 rgba(92,37,4,0.45);
+}
+
+.f7-mod--double {
+  background:
+    radial-gradient(110% 82% at 50% 20%, rgba(255,240,198,0.48), transparent 66%),
+    linear-gradient(168deg, #f9b13f 0%, #e07a1e 46%, #b0430e 100%);
+  box-shadow:
+    0 0 0 1.5px rgba(255,219,133,0.95) inset,
+    0 0 12px rgba(240,164,62,0.3),
+    0 2px 7px rgba(0,0,0,0.55);
+}
+
+.f7-rays {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 3.3em; height: 3.3em;
+  margin-top: calc(var(--f7-band) / -2);
+  transform: translate(-50%, -50%);
+  color: rgba(255,240,205,0.5);
+  pointer-events: none;
+}
+.f7-rays svg { width: 100%; height: 100%; display: block; }
+
+/* ── Action cards ─────────────────────────────────────────────────
+   Solid colour, symbol, name. The band is sized for the two-word
+   names and the one-word one keeps it, so the three sit side by side
+   with their bands lined up. */
+
+.f7-action {
+  --f7-band: 1.95em;
+  color: #ffffff;
+  box-shadow:
+    0 0 0 1.5px rgba(255,255,255,0.22) inset,
+    0 2px 7px rgba(0,0,0,0.55);
+}
+
+.f7-action .f7-band { background: rgba(0,0,0,0.22); }
+
+.f7-icon {
+  width: 2.05em;
+  height: 2.05em;
+  color: rgba(255,255,255,0.94);
+}
+.f7-icon svg { width: 100%; height: 100%; display: block; }
+
+.f7-action--freeze {
+  background:
+    radial-gradient(105% 80% at 50% 20%, rgba(206,236,255,0.42), transparent 66%),
+    linear-gradient(168deg, #5aa8ea 0%, #2f7fd0 55%, #1c5697 100%);
+}
+.f7-action--flipThree {
+  background:
+    radial-gradient(105% 80% at 50% 20%, rgba(226,214,255,0.4), transparent 66%),
+    linear-gradient(168deg, #9273e8 0%, #6b4fc8 55%, #48309a 100%);
+}
+.f7-action--secondChance {
+  background:
+    radial-gradient(105% 80% at 50% 20%, rgba(206,247,220,0.42), transparent 66%),
+    linear-gradient(168deg, #4dbd7a 0%, #2e9e5b 55%, #1c7040 100%);
+}
+
+/* ── The back, and the pile it makes ──────────────────────────────
+   Only ever the draw pile: everything in play is face up. */
+
+.f7-back {
+  --f7-band: 0em;
+  background-color: #0c1e27;
+  background-image:
+    radial-gradient(circle at 50% 32%, rgba(111,215,196,0.18), transparent 64%),
+    repeating-linear-gradient(45deg,  rgba(111,215,196,0.075) 0 1px, transparent 1px 7px),
+    repeating-linear-gradient(-45deg, rgba(111,215,196,0.075) 0 1px, transparent 1px 7px);
+  box-shadow:
+    0 0 0 1.5px rgba(111,215,196,0.3) inset,
+    0 2px 7px rgba(0,0,0,0.6);
+}
+
+.f7-back::after {
+  content: '';
+  position: absolute;
+  inset: 0.3em;
+  border: 1px solid rgba(111,215,196,0.2);
+  border-radius: calc(var(--f7-w) * 0.07);
+}
+
+.f7-back-mark {
+  font-size: 1.75em;
+  font-weight: 700;
+  color: rgba(111,215,196,0.6);
+  text-shadow: 0 0 12px rgba(111,215,196,0.35);
+}
+
+.f7-pile { position: relative; display: inline-flex; }
+.f7-pile-under { position: absolute; top: 0; left: 0; }
+.f7-pile-under--a { transform: translate(3px, 3px) rotate(3deg); }
+.f7-pile-under--b { transform: translate(-3px, 5px) rotate(-4deg); }
+
+.f7-pile-empty {
+  --f7-band: 0em;
+  background: rgba(255,255,255,0.02);
+  border: 1px dashed rgba(255,255,255,0.15);
+  box-shadow: none;
+}
+
+.f7-pile-count {
+  position: absolute;
+  left: 50%; bottom: -0.5rem;
+  transform: translateX(-50%);
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  color: var(--fg-soft);
+  font-family: 'Fredoka', 'Nunito', system-ui, sans-serif;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+/* ── What a card is doing right now ───────────────────────────────*/
+
+/* The card that just landed, flipped in face-first. */
+@keyframes f7-deal {
+  0%   { transform: perspective(420px) rotateY(-108deg) translateY(-10%) scale(0.88); opacity: 0; }
+  55%  { opacity: 1; }
+  100% { transform: perspective(420px) rotateY(0deg) translateY(0) scale(1); opacity: 1; }
+}
+.f7-fresh {
+  animation: f7-deal 0.42s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* A line that no longer scores. Desaturated rather than greyed out, so
+   the two cards that caused it can stay in colour underneath. */
+.f7-faded { filter: saturate(0.25) brightness(0.72); }
+
+/* The pair that busted the line. Kept in full colour and struck through:
+   this is the one thing worth reading on a dead line. */
+.f7-dup {
+  filter: none;
+  outline: 2px solid rgba(226,86,96,0.9);
+  outline-offset: 1px;
+}
+.f7-dup::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    transparent calc(50% - 1.5px),
+    rgba(214,52,64,0.85) calc(50% - 1.5px),
+    rgba(214,52,64,0.85) calc(50% + 1.5px),
+    transparent calc(50% + 1.5px)
+  );
+  pointer-events: none;
+}
+
+/* A Second Chance still in hand — an asset, not a score. */
+@keyframes f7-held {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.9; }
+}
+.f7-held::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px rgba(127,215,169,0.95) inset;
+  animation: f7-held 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* The Hit/Stay bar is pinned over a scrolling table, so it fades the
+   ground in behind itself rather than letting cards run under a hard
+   edge. The bar itself is click-through; only the buttons are not. */
+.f7-action-bar {
+  padding-top: 2.75rem;
+  background: linear-gradient(to top, var(--bg) 0%, var(--bg) 44%, rgba(10,47,51,0) 100%);
+  pointer-events: none;
+}
+.f7-action-bar > * { pointer-events: auto; }
+
+/* ── The line a seat lays out ─────────────────────────────────────*/
+
+.f7-line {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+@keyframes f7-shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-4px); }
+  30% { transform: translateX(4px); }
+  45% { transform: translateX(-3px); }
+  60% { transform: translateX(3px); }
+  80% { transform: translateX(-1px); }
+}
+.f7-seat--bust { animation: f7-shake 0.42s ease-out both; }
+
+@keyframes f7-crown {
+  0%, 100% { box-shadow: 0 0 0 1px var(--gold), 0 0 14px rgba(216,176,97,0.22); }
+  50%      { box-shadow: 0 0 0 2px var(--gold), 0 0 26px rgba(216,176,97,0.48); }
+}
+.f7-seat--seven { animation: f7-crown 1.4s ease-in-out infinite; }
+
+/* Seven pips: how close this line is to ending the round. */
+.f7-pips { display: inline-flex; align-items: center; gap: 0.16rem; }
+.f7-pip {
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 999px;
+  background: var(--line);
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.04) inset;
+}
+.f7-pip--on { background: var(--accent); box-shadow: 0 0 5px var(--accent-glow); }
+.f7-pip--close { background: var(--gold); box-shadow: 0 0 6px rgba(216,176,97,0.55); }
+
+@media (prefers-reduced-motion: reduce) {
+  .f7-fresh, .f7-seat--bust, .f7-seat--seven, .f7-held::before { animation: none; }
+  .f7-fresh { opacity: 1; transform: none; }
 }

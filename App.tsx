@@ -602,8 +602,8 @@ export default function App() {
 
         {!roundOver && !isSpectator && (
           <div
-            className="fixed left-0 right-0 flex items-center justify-center gap-3 px-4"
-            style={{ zIndex: Z_HUD, bottom: 'calc(var(--safe-b) + 1rem)' }}
+            className="f7-action-bar fixed left-0 right-0 bottom-0 flex items-center justify-center gap-3 px-4"
+            style={{ zIndex: Z_HUD, paddingBottom: 'calc(var(--safe-b) + 1rem)' }}
           >
             <button
               onClick={ctx.executeStay}
