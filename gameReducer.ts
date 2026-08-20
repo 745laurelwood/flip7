@@ -39,6 +39,7 @@ export const INITIAL_STATE: GameState = {
   pendingAction: null,
   flipThree: null,
   flipped7By: -1,
+  lastSave: null,
   gameLog: [],
   chatLog: [],
   spectators: [],
@@ -102,7 +103,11 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
   switch (action.type) {
     case 'SET_GAME_STATE':
       return isValidGameState(action.payload)
-        ? { ...action.payload, chatLog: action.payload.chatLog ?? [] }
+        ? {
+            ...action.payload,
+            chatLog: action.payload.chatLog ?? [],
+            lastSave: action.payload.lastSave ?? null,
+          }
         : state;
 
     case 'INIT_LOBBY': {
@@ -365,6 +370,9 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
         ...state,
         players,
         discard: [...state.discard, card, ...discarded],
+        // Both cards have just left the table, so the save is recorded rather
+        // than shown. Rounds do not reset it: the count is per match.
+        lastSave: { playerIndex: index, value, seq: (state.lastSave?.seq ?? 0) + 1 },
         gameLog: logPush(state.gameLog, `${player.name} drew a second ${value} — Second Chance saves them`),
       };
     }

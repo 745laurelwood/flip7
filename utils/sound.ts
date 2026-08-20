@@ -1,8 +1,10 @@
 import { sounds as shared, seq } from '@laurelwood/card-class';
 
 /**
- * The shared cue set plus the two moments that belong to Flip 7: the sinking
- * feeling of a bust, and the fanfare for a completed seven.
+ * The shared cue set plus the moments that belong to Flip 7: the sinking
+ * feeling of a bust, the fanfare for a completed seven, and the rising three
+ * notes of a Second Chance spent, which has to be heard as the opposite of
+ * the bust it just prevented.
  */
 export const sounds = {
   ...shared,
@@ -12,6 +14,11 @@ export const sounds = {
     { freq: 180, dur: 0.24, type: 'sawtooth' as const, gain: 0.07, delay: 0.10 },
   ]),
   flip7: shared.fanfare,
+  save: () => seq([
+    { freq: 520, dur: 0.10, type: 'triangle' as const, gain: 0.06 },
+    { freq: 784, dur: 0.10, type: 'triangle' as const, gain: 0.06, delay: 0.07 },
+    { freq: 1046, dur: 0.22, type: 'triangle' as const, gain: 0.055, delay: 0.14 },
+  ]),
   freeze: () => seq([
     { freq: 1180, dur: 0.09, type: 'sine' as const, gain: 0.06 },
     { freq: 1560, dur: 0.16, type: 'sine' as const, gain: 0.05, delay: 0.06 },

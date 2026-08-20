@@ -5,15 +5,16 @@ import { Action, gameReducer, INITIAL_STATE, makeEmptyPlayer } from './gameReduc
 import { GameProvider, GameContextValue } from './GameContext';
 import { FeltContent } from './components/FeltContent';
 import { RoundSummary } from './components/RoundSummary';
+import { SaveBanner } from './components/SaveBanner';
 import { Lobby } from './views/Lobby';
 import { sounds } from './utils/sound';
 import { chooseTarget, shouldHit } from './utils/ai';
 import { MQTT_BROKER, redactForWire, roomTopic } from './utils/net';
 import { clearSession, loadSession, saveSession, SavedSession } from './utils/session';
-import { ChatMessage, GameState, Player, Spectator } from './types';
+import { ChatMessage, GameState, Player, SaveMoment, Spectator } from './types';
 import {
   AI_AIM_DELAY_MS, AI_TURN_DELAY_MS, CHAT_MAX_LEN, EMPTY_SLOT_NAME,
-  FLIP_THREE_STEP_MS, ROUND_END_DELAY_MS, Z_HUD,
+  FLIP_THREE_STEP_MS, ROUND_END_DELAY_MS, SAVE_SHOW_MS, Z_HUD,
 } from './constants';
 import { DEFAULT_PLAYERS } from './rules';
 
@@ -390,6 +391,37 @@ export default function App() {
     return lines.length > 0 ? lines[lines.length - 1].id : null;
   }, [state.players]);
 
+  // ── A Second Chance spent, held up for a beat ──
+  // Watches the sequence number rather than the object: a client is sent the
+  // whole state every few seconds, and each of those is a fresh object that
+  // would otherwise read as another save. Lives here rather than in the table
+  // so that a round ending right after a save does not cut the news short.
+  const [save, setSave] = useState<SaveMoment | null>(null);
+  const seenSaveRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    // Back in the lobby there is nothing to watch, and the next match starts
+    // its count again, so the anchor is dropped here rather than carried over.
+    if (state.gamePhase === 'LOBBY') {
+      seenSaveRef.current = null;
+      setSave(null);
+      return;
+    }
+    const seq = state.lastSave?.seq ?? 0;
+    // The first state this client sees in play is history, not news: joining
+    // a room mid-match, or resuming one, arrives with saves already in it.
+    if (seenSaveRef.current === null) {
+      seenSaveRef.current = seq;
+      return;
+    }
+    if (seq === seenSaveRef.current) return;
+    seenSaveRef.current = seq;
+    setSave(state.lastSave);
+    sounds.save();
+    const timer = setTimeout(() => setSave(null), SAVE_SHOW_MS);
+    return () => clearTimeout(timer);
+  }, [state.lastSave?.seq, state.gamePhase]);
+
   const me = state.players[myIndex];
   const myTurn =
     !isSpectator
@@ -527,6 +559,7 @@ export default function App() {
       handleDispatch({ type: 'AIM_ACTION', payload: { playerIndex: myIndex, target } });
     },
     freshCardId,
+    save,
     startRound: () => { if (isDriver) dispatch({ type: 'START_ROUND' }); },
     returnToLobby: () => handleDispatch({ type: 'RETURN_TO_LOBBY', payload: { playerIndex: myIndex } }),
     logEndRef,
@@ -595,6 +628,14 @@ export default function App() {
             >
               Spectating
             </div>
+          )}
+
+          {save && (
+            <SaveBanner
+              save={save}
+              name={state.players[save.playerIndex]?.name ?? 'They'}
+              isMe={save.playerIndex === myIndex}
+            />
           )}
 
           {roundOver ? <RoundSummary /> : <FeltContent />}
