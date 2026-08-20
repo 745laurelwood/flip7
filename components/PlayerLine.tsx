@@ -1,5 +1,5 @@
 import React from 'react';
-import { Player } from '../types';
+import { Flip7Card, Player } from '../types';
 import { FLIP_7_COUNT, numbersIn, scoreLine } from '../rules';
 import { Flip7CardFace } from './Flip7Card';
 
@@ -18,11 +18,44 @@ const STATUS_COLOR: Record<Player['status'], string> = {
 };
 
 /**
- * One seat: name, running total, what they are holding, and the line itself.
+ * The number that turned up twice and ended this line, if one did.
  *
- * Everything in Flip 7 is face up, so a seat is a row rather than a hand. The
- * unique-number count is spelled out because it is the number that actually
- * decides whether hitting again is sane.
+ * A bust leaves both copies face up, so the pair can be marked rather than
+ * leaving the reader to scan a dead line for the match themselves. A line
+ * saved by a Second Chance has no pair left in it: the duplicate is discarded.
+ */
+const bustedOn = (line: Flip7Card[]): number | null => {
+  const seen = new Set<number>();
+  for (const card of line) {
+    if (card.kind !== 'number') continue;
+    if (seen.has(card.value)) return card.value;
+    seen.add(card.value);
+  }
+  return null;
+};
+
+/**
+ * How close this line is to the seven that ends the round. A busted line is
+ * passed nothing: it is not on its way anywhere.
+ */
+const Pips: React.FC<{ filled: number }> = ({ filled }) => (
+  <span className="f7-pips" title={`${filled} of ${FLIP_7_COUNT} different numbers`}>
+    {Array.from({ length: FLIP_7_COUNT }, (_, i) => (
+      <span
+        key={i}
+        className={
+          'f7-pip'
+          + (i >= filled ? '' : filled >= FLIP_7_COUNT - 1 ? ' f7-pip--close' : ' f7-pip--on')
+        }
+      />
+    ))}
+  </span>
+);
+
+/**
+ * One seat: name, running total, how close it is to seven, and the line itself.
+ *
+ * Everything in Flip 7 is face up, so a seat is a row rather than a hand.
  */
 export const PlayerLine: React.FC<{
   player: Player;
@@ -36,6 +69,7 @@ export const PlayerLine: React.FC<{
   const busted = player.status === 'busted';
   const standing = scoreLine(player.line, { busted });
   const uniques = new Set(numbersIn(player.line)).size;
+  const duplicate = busted ? bustedOn(player.line) : null;
 
   const Wrapper: React.ElementType = targetable ? 'button' : 'div';
 
@@ -45,6 +79,8 @@ export const PlayerLine: React.FC<{
       className={`
         w-full text-left rounded-2xl px-3 py-2 transition-all
         ${targetable ? 'cursor-pointer hover:brightness-125 animate-accent-pulse' : ''}
+        ${busted ? 'f7-seat--bust' : ''}
+        ${player.status === 'flipped7' ? 'f7-seat--seven' : ''}
       `}
       style={{
         background: isMe ? 'var(--bg-2)' : 'var(--bg-1)',
@@ -52,7 +88,7 @@ export const PlayerLine: React.FC<{
           targetable ? 'var(--accent)' : isTurn ? 'var(--accent-soft)' : 'var(--line)'
         }`,
         boxShadow: isTurn ? '0 0 0 1px var(--accent-soft), 0 4px 16px rgba(0,0,0,0.35)' : undefined,
-        opacity: busted ? 0.65 : 1,
+        opacity: busted ? 0.72 : 1,
       }}
     >
       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -78,12 +114,6 @@ export const PlayerLine: React.FC<{
           </span>
         )}
 
-        {player.hasSecondChance && player.status === 'active' && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(127,215,169,0.16)', color: 'var(--good)' }}>
-            2nd chance
-          </span>
-        )}
-
         {isTurn && (
           <span
             className="text-[10px] px-2 py-0.5 rounded-full animate-accent-pulse"
@@ -93,14 +123,23 @@ export const PlayerLine: React.FC<{
           </span>
         )}
 
-        <span className="ml-auto text-[11px] tabular-nums" style={{ color: 'var(--dim)' }}>
-          {uniques}/{FLIP_7_COUNT} · {busted ? 0 : standing}
+        <span className="ml-auto flex items-center gap-2">
+          <Pips filled={busted ? 0 : uniques} />
+          <span
+            className="font-display text-sm tabular-nums"
+            style={{ color: busted ? 'var(--dim)' : 'var(--fg-soft)' }}
+            title="What this line is worth right now"
+          >
+            {busted ? 0 : standing}
+          </span>
         </span>
       </div>
 
-      <div className="flex items-center gap-1 flex-wrap min-h-[4rem]">
+      <div className="f7-line min-h-[4.9rem] sm:min-h-[5.6rem]">
         {player.line.length === 0 && (
-          <span className="text-[11px] italic" style={{ color: 'var(--dimmer)' }}>nothing yet</span>
+          <span className="text-[11px] italic self-center" style={{ color: 'var(--dimmer)' }}>
+            nothing yet
+          </span>
         )}
         {player.line.map(card => (
           <Flip7CardFace
@@ -108,6 +147,8 @@ export const PlayerLine: React.FC<{
             card={card}
             faded={busted}
             fresh={card.id === freshCardId}
+            duplicate={duplicate !== null && card.kind === 'number' && card.value === duplicate}
+            held={card.kind === 'action' && card.action === 'secondChance'}
           />
         ))}
       </div>

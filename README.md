@@ -68,3 +68,13 @@ Refreshing offers to resume you back into the room you were in.
 ## Bots
 
 They reason from public information only — the deck list is printed on the box and every card in play is face up — so a bot counts the copies of each number still unseen and hits while the expected gain clears the expected loss. It never looks at the draw pile.
+
+## The cards
+
+Drawn from scratch in `components/Flip7Card.tsx` rather than through the shared skin's `CardComponent`, which puts a suit and a rank on a card and these have neither.
+
+The printed deck is the reference: a number is a pale card with the numeral filling it and the same number spelled out underneath, modifiers sit on orange, and each action card is a solid colour with a symbol on it.
+
+The one place we go further than the cardboard is colour. On the table every number card looks alike, because the deck itself tells you the odds — there is one 1 and there are twelve 12s, so a 12 is the card most likely to come back and bust you. On a screen that is invisible, so the numbers run cool to hot: a slate 0 through to a hot magenta 12. The colour only shows you what the deck list already says.
+
+Sizes come off one token. `--f7-w` sets the width, the aspect ratio fixes the height, and the card's font size is derived from its width — so every part of a face is written in `em` and one number rescales the whole thing. See `theme.ts` for the palette and the words.
