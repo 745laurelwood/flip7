@@ -1,0 +1,12 @@
+{
+  "name": "Flip 7",
+  "short_name": "Flip 7",
+  "description": "The push-your-luck card game.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a2f33",
+  "theme_color": "#0a2f33",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

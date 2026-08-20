@@ -55,8 +55,16 @@ npm run dev
 
 It serves on port 3007, so it can run alongside the other games.
 
-## What is here
+## Playing with other people
 
-Two to eight players against bots. The bots reason from public information only — the deck list is on the box and every card in play is face up — so they estimate a bust chance from what is showing rather than from the draw pile.
+Create a room and share the four-letter code. Two to eight seats; anything nobody claims becomes a bot when the host deals, so a table of three humans and five bots is fine.
 
-Multiplayer rooms are not wired up yet; that is the next piece.
+The host runs the game — it owns the draw pile, the bots and the timers — and everyone else sends what their player did and renders what comes back. Turning up after the deal makes you a spectator until the next match.
+
+Flip 7 has no hidden hands: every card in play is face up in front of its owner. The one secret is the draw pile, so that is the only thing stripped before the state goes out. The table still shows how many cards are left, because the pile is replaced with blanks of the same length rather than emptied.
+
+Refreshing offers to resume you back into the room you were in.
+
+## Bots
+
+They reason from public information only — the deck list is printed on the box and every card in play is face up — so a bot counts the copies of each number still unseen and hits while the expected gain clears the expected loss. It never looks at the draw pile.

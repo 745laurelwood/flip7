@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Flip 7">
+  <rect width="64" height="64" rx="14" fill="#0a2f33"/>
+  <g transform="rotate(-12 32 34)">
+    <rect x="14" y="14" width="30" height="40" rx="5" fill="#1b4a4a" stroke="#3a7f75" stroke-width="1.5"/>
+  </g>
+  <g transform="rotate(8 32 34)">
+    <rect x="20" y="12" width="30" height="40" rx="5" fill="#faf9f5" stroke="#cfd6d2" stroke-width="1.5"/>
+    <text x="35" y="41" text-anchor="middle" font-family="Fredoka, Nunito, system-ui, sans-serif"
+          font-size="26" font-weight="600" fill="#0a2f33">7</text>
+  </g>
+</svg>
