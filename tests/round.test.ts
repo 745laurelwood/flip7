@@ -269,3 +269,48 @@ describe('the match', () => {
     expect(second.currentTurn).toBe(1);
   });
 });
+
+describe('the lobby', () => {
+  it('seats a bot in every chair nobody claimed', () => {
+    const lobby = gameReducer(INITIAL_STATE, {
+      type: 'INIT_LOBBY', payload: { isHost: true, roomId: 'ABCD', hostName: 'Host', seats: 4 },
+    });
+    // The host claims seat 0 the way hostRoom does, one more player joins,
+    // and two chairs stay empty.
+    const withHumans = gameReducer(lobby, {
+      type: 'UPDATE_PLAYERS',
+      payload: lobby.players.map((p, i) =>
+        i === 0 ? { ...p, isHuman: true, peerId: 'ABCD' }
+          : i === 1 ? { ...p, name: 'Rae', isHuman: true, peerId: 'x' }
+            : p,
+      ),
+    });
+    const dealt = gameReducer(withHumans, { type: 'START_ROUND' });
+
+    expect(dealt.players).toHaveLength(4);
+    expect(dealt.players.every(p => p.name !== 'Waiting...')).toBe(true);
+    // Names stay distinct, so nobody is talking to their own double.
+    expect(new Set(dealt.players.map(p => p.name)).size).toBe(4);
+    expect(dealt.players.filter(p => p.isHuman)).toHaveLength(2);
+  });
+
+  it('resizes the table but never below the people already in it', () => {
+    const lobby = gameReducer(INITIAL_STATE, {
+      type: 'INIT_LOBBY', payload: { isHost: true, seats: 6 },
+    });
+    const withHumans = gameReducer(lobby, {
+      type: 'UPDATE_PLAYERS',
+      payload: lobby.players.map((p, i) => (i < 4 ? { ...p, name: `H${i}`, isHuman: true } : p)),
+    });
+    expect(gameReducer(withHumans, { type: 'SET_SEATS', payload: { seats: 8 } }).players).toHaveLength(8);
+    // Four humans are seated, so it will not shrink to three.
+    expect(gameReducer(withHumans, { type: 'SET_SEATS', payload: { seats: 3 } })).toBe(withHumans);
+  });
+
+  it('clamps the table to the legal range', () => {
+    const big = gameReducer(INITIAL_STATE, { type: 'INIT_LOBBY', payload: { isHost: true, seats: 99 } });
+    expect(big.players).toHaveLength(8);
+    const small = gameReducer(INITIAL_STATE, { type: 'INIT_LOBBY', payload: { isHost: true, seats: 1 } });
+    expect(small.players).toHaveLength(2);
+  });
+});

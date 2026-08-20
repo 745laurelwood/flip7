@@ -5,13 +5,14 @@ import {
 import { createDeck, drawCard, shuffle } from './utils/deck';
 import { EMPTY_SLOT_NAME, MAX_LOG_ENTRIES, CHAT_MAX_HISTORY, pickBotNames } from './constants';
 import {
-  ACTION_LABELS, DEFAULT_PLAYERS, FLIP_7_BONUS, MODIFIER_LABELS,
-  WINNING_SCORE, cardLabel, hasFlip7, scorePlayer,
+  ACTION_LABELS, DEFAULT_PLAYERS, FLIP_7_BONUS, MAX_PLAYERS, MIN_PLAYERS,
+  MODIFIER_LABELS, WINNING_SCORE, hasFlip7, scorePlayer,
 } from './rules';
 
 export type Action =
   | { type: 'SET_GAME_STATE'; payload: GameState }
-  | { type: 'INIT_LOBBY'; payload: { isHost: boolean; roomId?: string; hostName?: string } }
+  | { type: 'INIT_LOBBY'; payload: { isHost: boolean; roomId?: string; hostName?: string; seats?: number } }
+  | { type: 'SET_SEATS'; payload: { seats: number } }
   | { type: 'UPDATE_PLAYERS'; payload: Player[] }
   | { type: 'SET_PLAYER_OFFLINE'; payload: { peerId: string } }
   | { type: 'START_GAME'; payload: { playerName: string; numPlayers: number } }
@@ -61,6 +62,23 @@ export const isValidGameState = (s: any): s is GameState =>
 const logPush = (log: string[], entry: string): string[] =>
   [...log, entry].slice(-MAX_LOG_ENTRIES);
 
+const clampSeats = (n: number): number =>
+  Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, Math.round(n)));
+
+/** Seats a bot in every chair nobody claimed. */
+function fillEmptySeats(players: Player[]): Player[] {
+  const empties = players.filter(p => !p.isHuman && p.name === EMPTY_SLOT_NAME).length;
+  if (empties === 0) return players;
+  const taken = players.filter(p => p.name !== EMPTY_SLOT_NAME).map(p => p.name);
+  const names = pickBotNames(empties, taken);
+  let next = 0;
+  return players.map(p =>
+    !p.isHuman && p.name === EMPTY_SLOT_NAME
+      ? { ...p, name: names[next++] ?? `Bot ${p.id + 1}` }
+      : p,
+  );
+}
+
 // ============================================================
 // Turn helpers
 // ============================================================
@@ -87,15 +105,29 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         ? { ...action.payload, chatLog: action.payload.chatLog ?? [] }
         : state;
 
-    case 'INIT_LOBBY':
+    case 'INIT_LOBBY': {
+      const seats = clampSeats(action.payload.seats ?? DEFAULT_PLAYERS);
       return {
         ...INITIAL_STATE,
         gamePhase: 'LOBBY',
         roomId: action.payload.roomId,
-        players: Array.from({ length: DEFAULT_PLAYERS }, (_, i) =>
+        players: Array.from({ length: seats }, (_, i) =>
           makeEmptyPlayer(i, i === 0 ? (action.payload.hostName || 'You (Host)') : EMPTY_SLOT_NAME, false)
         ),
       };
+    }
+
+    case 'SET_SEATS': {
+      if (state.gamePhase !== 'LOBBY') return state;
+      const seats = clampSeats(action.payload.seats);
+      const seated = state.players.filter(p => p.isHuman).length;
+      // Never shrink past the people already in the room.
+      if (seats < seated) return state;
+      const players = Array.from({ length: seats }, (_, i) =>
+        state.players[i] ?? makeEmptyPlayer(i, EMPTY_SLOT_NAME, false),
+      );
+      return { ...state, players };
+    }
 
     case 'START_GAME': {
       const { playerName, numPlayers } = action.payload;
@@ -124,11 +156,15 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
     case 'START_ROUND': {
       const isFirstRound = state.gamePhase === 'LOBBY';
       const roundNumber = state.roundNumber + 1;
+
+      // Anyone who never turned up gets a bot in their chair, named so it
+      // cannot collide with a human already at the table.
+      const seated = isFirstRound ? fillEmptySeats(state.players) : state.players;
       // The lead passes on by one each round so nobody keeps the advantage of
       // drawing into an empty discard pile first.
       const firstPlayer = isFirstRound ? 0 : (state.firstPlayer + 1) % state.players.length;
 
-      const players = state.players.map(p => ({
+      const players = seated.map(p => ({
         ...p,
         line: [],
         status: 'active' as const,
