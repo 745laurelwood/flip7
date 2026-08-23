@@ -29,6 +29,7 @@ export const sounds = {
 /** The cue for each moment the reducer records. */
 export const MOMENT_CUES: Record<MomentKind, () => void> = {
   save: sounds.save,
+  freeze: sounds.freeze,
   bust: sounds.bust,
   flip7: sounds.flip7,
 };

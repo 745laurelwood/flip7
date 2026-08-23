@@ -99,9 +99,9 @@ export const PlayerLine: React.FC<{
   targetable?: boolean;
   onTarget?: () => void;
   freshCardId?: string | null;
-  /** Flashes the seat while a Second Chance it just spent is being shown. */
-  saved?: boolean;
-}> = ({ player, isMe, isTurn, targetable = false, onTarget, freshCardId, saved = false }) => {
+  /** Flashes the seat while a moment it is part of is being shown. */
+  flash?: 'save' | 'freeze' | null;
+}> = ({ player, isMe, isTurn, targetable = false, onTarget, freshCardId, flash = null }) => {
   const busted = player.status === 'busted';
   const standing = scoreLine(player.line, { busted });
   const uniques = new Set(numbersIn(player.line)).size;
@@ -117,7 +117,7 @@ export const PlayerLine: React.FC<{
         ${targetable ? 'cursor-pointer hover:brightness-125 animate-accent-pulse' : ''}
         ${busted ? 'f7-seat--bust' : ''}
         ${player.status === 'flipped7' ? 'f7-seat--seven' : ''}
-        ${saved ? 'f7-seat--saved' : ''}
+        ${flash ? `f7-seat--flash-${flash}` : ''}
       `}
       style={{
         background: isMe ? 'var(--bg-2)' : 'var(--bg-1)',

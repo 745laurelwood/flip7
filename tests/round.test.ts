@@ -133,6 +133,17 @@ describe('being frozen', () => {
     expect(state.players[0].frozen).toBeFalsy();
   });
 
+  it('is recorded as a moment naming both seats and what was banked', () => {
+    // Seat 1 banks a 9 first, then seat 0 draws the Freeze and aims it there.
+    const state = run(
+      table(2, [num(4), num(9), act('freeze')]),
+      hit(0), hit(1), hit(0), aim(0, 1),
+    );
+    expect(state.lastMoment).toEqual({
+      kind: 'freeze', playerIndex: 1, byIndex: 0, value: 9, seq: 1,
+    });
+  });
+
   it('is not carried into the next round', () => {
     const frozen = run(table(2, [act('freeze'), num(4)]), hit(0), aim(0, 1));
     const next = gameReducer(

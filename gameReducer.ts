@@ -1,5 +1,5 @@
 import {
-  ActionCard, ActionKind, ChatMessage, Flip7Card, GameState, MomentKind,
+  ActionCard, ActionKind, ChatMessage, Flip7Card, GameState,
   PendingAction, Player, Spectator, TableMoment,
 } from './types';
 import { createDeck, drawCard, shuffle } from './utils/deck';
@@ -65,14 +65,8 @@ const logPush = (log: string[], entry: string): string[] =>
   [...log, entry].slice(-MAX_LOG_ENTRIES);
 
 /** Stamps a moment with the next sequence number. */
-const moment = (
-  state: GameState,
-  kind: MomentKind,
-  playerIndex: number,
-  value?: number,
-): TableMoment => ({
-  kind, playerIndex, value, seq: (state.lastMoment?.seq ?? 0) + 1,
-});
+const moment = (state: GameState, m: Omit<TableMoment, 'seq'>): TableMoment =>
+  ({ ...m, seq: (state.lastMoment?.seq ?? 0) + 1 });
 
 const clampSeats = (n: number): number =>
   Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, Math.round(n)));
@@ -388,7 +382,7 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
         lastCardId: null,
         // Both cards have just left the table, so the save is recorded rather
         // than shown. Rounds do not reset it: the count is per match.
-        lastMoment: moment(state, 'save', index, value),
+        lastMoment: moment(state, { kind: 'save', playerIndex: index, value }),
         gameLog: logPush(state.gameLog, `${player.name} drew a second ${value} — Second Chance saves them`),
       };
     }
@@ -397,7 +391,7 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
       ...state,
       players,
       lastCardId: card.id,
-      lastMoment: moment(state, 'bust', index, value),
+      lastMoment: moment(state, { kind: 'bust', playerIndex: index, value }),
       gameLog: logPush(state.gameLog, `${player.name} drew a second ${value} and busts`),
     };
   }
@@ -410,7 +404,7 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
     players,
     lastCardId: card.id,
     flipped7By: flipped ? index : state.flipped7By,
-    lastMoment: flipped ? moment(state, 'flip7', index) : state.lastMoment,
+    lastMoment: flipped ? moment(state, { kind: 'flip7', playerIndex: index }) : state.lastMoment,
     gameLog: logPush(
       state.gameLog,
       flipped
@@ -470,11 +464,15 @@ function resolveAction(state: GameState, pending: PendingAction, target: number)
       ...stopped,
       players: stopped.players.map(p => (p.id === target ? { ...p, frozen: true } : p)),
     };
-    const banked = logPush(
-      frozen.gameLog,
-      `${targetPlayer.name} is frozen on ${scorePlayer(frozen.players[target])}`,
-    );
-    return continueAfterAction({ ...frozen, gameLog: banked }, pending.drawnBy);
+    const score = scorePlayer(frozen.players[target]);
+    const banked = logPush(frozen.gameLog, `${targetPlayer.name} is frozen on ${score}`);
+    return continueAfterAction({
+      ...frozen,
+      gameLog: banked,
+      lastMoment: moment(frozen, {
+        kind: 'freeze', playerIndex: target, byIndex: pending.drawnBy, value: score,
+      }),
+    }, pending.drawnBy);
   }
 
   if (pending.action === 'secondChance') {

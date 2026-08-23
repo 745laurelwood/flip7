@@ -95,7 +95,7 @@ export interface FlipThreeRun {
 }
 
 /** Things worth hearing, and sometimes worth stopping the table for. */
-export type MomentKind = 'save' | 'bust' | 'flip7';
+export type MomentKind = 'save' | 'freeze' | 'bust' | 'flip7';
 
 /**
  * The last thing that happened worth reacting to.
@@ -114,7 +114,9 @@ export interface TableMoment {
   kind: MomentKind;
   /** The seat it happened to. */
   playerIndex: number;
-  /** The number behind it: saved from, or busted on. */
+  /** The seat that did it, when somebody else did. */
+  byIndex?: number;
+  /** The number that matters: saved from, busted on, or banked by a Freeze. */
   value?: number;
   /**
    * Bumped on every moment, and monotonic for the life of a match. The table

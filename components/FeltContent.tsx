@@ -71,7 +71,12 @@ export const FeltContent: React.FC = () => {
             targetable={awaitingMyAim && legalTargets.includes(p.id)}
             onTarget={() => executeAim(p.id)}
             freshCardId={freshCardId}
-            saved={moment?.kind === 'save' && moment.playerIndex === p.id}
+            flash={
+              moment && moment.playerIndex === p.id
+                && (moment.kind === 'save' || moment.kind === 'freeze')
+                ? moment.kind
+                : null
+            }
           />
         ))}
       </div>

@@ -462,7 +462,6 @@ export default function App() {
     if (!drawer || drawer.isHuman) return;
 
     const timer = setTimeout(() => {
-      if (pending.action === 'freeze') sounds.freeze();
       dispatch({
         type: 'AIM_ACTION',
         payload: { playerIndex: drawer.id, target: chooseTarget(state, drawer.id, pending.action) },
@@ -621,11 +620,7 @@ export default function App() {
           )}
 
           {moment && (
-            <MomentBanner
-              moment={moment}
-              name={state.players[moment.playerIndex]?.name ?? 'They'}
-              isMe={moment.playerIndex === myIndex}
-            />
+            <MomentBanner moment={moment} players={state.players} myIndex={myIndex} />
           )}
 
           {roundOver ? <RoundSummary /> : <FeltContent />}
