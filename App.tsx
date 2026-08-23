@@ -630,6 +630,30 @@ export default function App() {
           )}
 
           {roundOver ? <RoundSummary /> : <FeltContent />}
+
+          {chatEnabled && (
+            // Pinned over the table while the round runs, where it clears the
+            // Hit and Stay bar. Once the round is over that bar is gone and
+            // the scoreboard is the whole screen, so the chat drops into the
+            // page underneath it rather than floating across the scores.
+            <div
+              className={roundOver
+                ? 'flex justify-end mt-5'
+                : 'fixed right-0 flex justify-end p-2 sm:p-3 pointer-events-none'}
+              style={roundOver ? undefined : { zIndex: Z_HUD, bottom: 'calc(var(--safe-b) + 5rem)' }}
+            >
+              <div className={roundOver ? undefined : 'pointer-events-auto'}>
+                <ChatRoom
+                  messages={state.chatLog ?? []}
+                  myIndex={myIndex}
+                  unread={chatUnread}
+                  onOpen={() => setChatUnread(0)}
+                  onClose={() => setChatUnread(0)}
+                  onSend={sendChat}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {!roundOver && !isSpectator && (
@@ -661,24 +685,6 @@ export default function App() {
             >
               Hit
             </button>
-          </div>
-        )}
-
-        {chatEnabled && (
-          <div
-            className="fixed right-0 flex justify-end p-2 sm:p-3 pointer-events-none"
-            style={{ zIndex: Z_HUD, bottom: 'calc(var(--safe-b) + 5rem)' }}
-          >
-            <div className="pointer-events-auto">
-              <ChatRoom
-                messages={state.chatLog ?? []}
-                myIndex={myIndex}
-                unread={chatUnread}
-                onOpen={() => setChatUnread(0)}
-                onClose={() => setChatUnread(0)}
-                onSend={sendChat}
-              />
-            </div>
           </div>
         )}
 
