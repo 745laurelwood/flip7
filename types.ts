@@ -142,6 +142,15 @@ export interface GameState {
   /** The last Second Chance spent, or null if none has been this match. */
   lastSave: SaveMoment | null;
 
+  /**
+   * The card that landed most recently, for the flip that marks it.
+   *
+   * Recorded when it is dealt rather than worked out from the table: the last
+   * card in seat order belongs to whichever seat sits furthest down, which is
+   * almost never the one that just drew.
+   */
+  lastCardId: string | null;
+
   gameLog: string[];
   chatLog: ChatMessage[];
   readyForLobbyIndices?: number[];

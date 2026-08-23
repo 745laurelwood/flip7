@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { useEffect, useReducer, useRef, useState } from 'react';
 import mqtt from 'mqtt';
 import { GameLog, ChatRoom } from '@laurelwood/card-class';
 import { Action, gameReducer, INITIAL_STATE, makeEmptyPlayer } from './gameReducer';
@@ -385,11 +385,6 @@ export default function App() {
     finish();
   };
 
-  // ── The card that landed most recently, for the ring that marks it ──
-  const freshCardId = useMemo(() => {
-    const lines = state.players.flatMap(p => p.line);
-    return lines.length > 0 ? lines[lines.length - 1].id : null;
-  }, [state.players]);
 
   // ── A Second Chance spent, held up for a beat ──
   // Watches the sequence number rather than the object: a client is sent the
@@ -558,7 +553,7 @@ export default function App() {
       if (!awaitingMyAim) return;
       handleDispatch({ type: 'AIM_ACTION', payload: { playerIndex: myIndex, target } });
     },
-    freshCardId,
+    freshCardId: state.lastCardId,
     save,
     startRound: () => { if (isDriver) dispatch({ type: 'START_ROUND' }); },
     returnToLobby: () => handleDispatch({ type: 'RETURN_TO_LOBBY', payload: { playerIndex: myIndex } }),

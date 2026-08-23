@@ -122,6 +122,45 @@ describe('busting', () => {
   });
 });
 
+describe('the card that just landed', () => {
+  it('is the card dealt, not the last one in seat order', () => {
+    // Seats 1 and 2 already have cards when seat 0 draws its second.
+    const state = run(
+      table(3, [num(5), num(6), num(7), num(8)]),
+      hit(0), hit(1), hit(2), hit(0),
+    );
+    expect(state.players[0].line.map(c => c.id)).toEqual(['n5-', 'n8-']);
+    expect(state.lastCardId).toBe('n8-');
+  });
+
+  it('follows a Second Chance to whoever it was given to', () => {
+    const state = run(
+      table(2, [act('secondChance'), num(4)]),
+      hit(0), aim(0, 1),
+    );
+    expect(state.players[1].hasSecondChance).toBe(true);
+    expect(state.lastCardId).toBe('a-secondChance-');
+  });
+
+  it('is cleared when a save takes both cards off the table', () => {
+    const state = run(
+      table(1, [act('secondChance'), num(7, 'a'), num(7, 'b')]),
+      hit(0), hit(0), hit(0),
+    );
+    expect(state.lastCardId).toBeNull();
+  });
+
+  it('is cleared when the next round wipes the lines', () => {
+    const dealt = run(table(2, [num(5), num(6)]), hit(0));
+    expect(dealt.lastCardId).not.toBeNull();
+    const next = gameReducer(
+      { ...dealt, gamePhase: 'ROUND_OVER' },
+      { type: 'START_ROUND' },
+    );
+    expect(next.lastCardId).toBeNull();
+  });
+});
+
 describe('flipping seven', () => {
   it('ends the round for everyone the moment it lands', () => {
     const seven = [0, 1, 2, 3, 4, 5, 6].map((v, i) => num(v, String(i)));

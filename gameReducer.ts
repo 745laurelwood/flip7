@@ -40,6 +40,7 @@ export const INITIAL_STATE: GameState = {
   flipThree: null,
   flipped7By: -1,
   lastSave: null,
+  lastCardId: null,
   gameLog: [],
   chatLog: [],
   spectators: [],
@@ -107,6 +108,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
             ...action.payload,
             chatLog: action.payload.chatLog ?? [],
             lastSave: action.payload.lastSave ?? null,
+            lastCardId: action.payload.lastCardId ?? null,
           }
         : state;
 
@@ -190,6 +192,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         pendingAction: null,
         flipThree: null,
         flipped7By: -1,
+        lastCardId: null,
         gameLog: [`Round ${roundNumber} — ${players[firstPlayer].name} goes first`],
       };
     }
@@ -345,6 +348,7 @@ function dealTo(state: GameState, index: number): GameState {
     return {
       ...base,
       players,
+      lastCardId: card.id,
       gameLog: logPush(base.gameLog, `${player.name} drew ${MODIFIER_LABELS[card.modifier]}`),
     };
   }
@@ -370,6 +374,7 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
         ...state,
         players,
         discard: [...state.discard, card, ...discarded],
+        lastCardId: null,
         // Both cards have just left the table, so the save is recorded rather
         // than shown. Rounds do not reset it: the count is per match.
         lastSave: { playerIndex: index, value, seq: (state.lastSave?.seq ?? 0) + 1 },
@@ -380,6 +385,7 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
     return {
       ...state,
       players,
+      lastCardId: card.id,
       gameLog: logPush(state.gameLog, `${player.name} drew a second ${value} and busts`),
     };
   }
@@ -390,6 +396,7 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
   const withCard: GameState = {
     ...state,
     players,
+    lastCardId: card.id,
     flipped7By: flipped ? index : state.flipped7By,
     gameLog: logPush(
       state.gameLog,
@@ -480,7 +487,7 @@ function giveSecondChance(state: GameState, target: number, cardId: string): Gam
   const p = players[target];
   const card: ActionCard = { kind: 'action', action: 'secondChance', id: cardId };
   players[target] = { ...p, line: [...p.line, card], hasSecondChance: true };
-  return { ...state, players };
+  return { ...state, players, lastCardId: card.id };
 }
 
 /**
