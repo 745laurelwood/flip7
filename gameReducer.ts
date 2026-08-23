@@ -186,6 +186,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         line: [],
         status: 'active' as const,
         hasSecondChance: false,
+        frozen: false,
         lastRoundScore: 0,
       }));
 
@@ -285,7 +286,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         roomId: state.roomId,
         players: state.players.map(p => ({
           ...p, line: [], status: 'active' as const,
-          hasSecondChance: false, total: 0, lastRoundScore: 0,
+          hasSecondChance: false, frozen: false, total: 0, lastRoundScore: 0,
         })),
       };
     }
@@ -458,11 +459,17 @@ function resolveAction(state: GameState, pending: PendingAction, target: number)
   };
 
   if (pending.action === 'freeze') {
-    const frozen = withStatus(
+    const stopped = withStatus(
       { ...cleared, discard: [...cleared.discard, { kind: 'action', action: 'freeze', id: pending.cardId }] },
       target,
       'stayed',
     );
+    // Same status as staying, because the effect is the same. The flag is what
+    // lets the table say it was done to them rather than chosen.
+    const frozen: GameState = {
+      ...stopped,
+      players: stopped.players.map(p => (p.id === target ? { ...p, frozen: true } : p)),
+    };
     const banked = logPush(
       frozen.gameLog,
       `${targetPlayer.name} is frozen on ${scorePlayer(frozen.players[target])}`,

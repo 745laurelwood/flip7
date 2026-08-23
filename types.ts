@@ -49,6 +49,11 @@ export interface Player {
   status: PlayerStatus;
   /** Unused Second Chance, held against a future duplicate. */
   hasSecondChance: boolean;
+  /**
+   * Stopped by a Freeze rather than by choice. The status is `stayed` either
+   * way, because the effect is the same, but the two do not read the same.
+   */
+  frozen?: boolean;
   /** Banked across rounds. First past the target wins. */
   total: number;
   /** What this seat scored in the round just finished, for the summary. */

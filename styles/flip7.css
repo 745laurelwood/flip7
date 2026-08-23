@@ -18,6 +18,9 @@
   --accent:   #6fd7c4;
   --accent-soft: #3a7f75;
   --accent-glow: rgba(111,215,196,0.25);
+
+  /* The blue off the Freeze card, so the mark on a seat matches what froze it. */
+  --freeze: #6cb4ef;
 }
 
 /* The accent button's gradient is hard-coded blue in the package, so it needs

@@ -2,6 +2,7 @@ import React from 'react';
 import { Flip7Card, Player } from '../types';
 import { FLIP_7_COUNT, numbersIn, scoreLine } from '../rules';
 import { Flip7CardFace } from './Flip7Card';
+import { IconFreeze } from './cardArt';
 
 const STATUS_LABEL: Record<Player['status'], string> = {
   active: '',
@@ -15,6 +16,39 @@ const STATUS_COLOR: Record<Player['status'], string> = {
   stayed: 'var(--good)',
   busted: 'var(--red)',
   flipped7: 'var(--gold)',
+};
+
+/**
+ * Why this seat stopped.
+ *
+ * Being frozen and staying leave the same status behind, because they have
+ * the same effect, but one of them was a choice and the other was done to
+ * you. The snowflake is the same one on the card that did it.
+ */
+const StatusBadge: React.FC<{ player: Player }> = ({ player }) => {
+  if (player.status === 'active') return null;
+
+  if (player.frozen) {
+    return (
+      <span
+        className="text-[10px] uppercase tracking-[0.14em] font-bold inline-flex items-center gap-1"
+        style={{ color: 'var(--freeze)' }}
+        title="Frozen — stopped by a Freeze card"
+      >
+        <span className="w-3 h-3 shrink-0"><IconFreeze /></span>
+        Frozen
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="text-[10px] uppercase tracking-[0.14em] font-bold"
+      style={{ color: STATUS_COLOR[player.status] }}
+    >
+      {STATUS_LABEL[player.status]}
+    </span>
+  );
 };
 
 /**
@@ -108,14 +142,7 @@ export const PlayerLine: React.FC<{
           {player.total}
         </span>
 
-        {player.status !== 'active' && (
-          <span
-            className="text-[10px] uppercase tracking-[0.14em] font-bold"
-            style={{ color: STATUS_COLOR[player.status] }}
-          >
-            {STATUS_LABEL[player.status]}
-          </span>
-        )}
+        <StatusBadge player={player} />
 
         {isTurn && (
           <span

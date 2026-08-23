@@ -122,6 +122,28 @@ describe('busting', () => {
   });
 });
 
+describe('being frozen', () => {
+  it('stops the seat the way staying does, but says it was not their idea', () => {
+    const state = run(
+      table(2, [act('freeze'), num(4)]),
+      hit(0), aim(0, 1),
+    );
+    expect(state.players[1].status).toBe('stayed');
+    expect(state.players[1].frozen).toBe(true);
+    expect(state.players[0].frozen).toBeFalsy();
+  });
+
+  it('is not carried into the next round', () => {
+    const frozen = run(table(2, [act('freeze'), num(4)]), hit(0), aim(0, 1));
+    const next = gameReducer(
+      { ...frozen, gamePhase: 'ROUND_OVER' },
+      { type: 'START_ROUND' },
+    );
+    expect(next.players[1].frozen).toBe(false);
+    expect(next.players[1].status).toBe('active');
+  });
+});
+
 describe('moments that end the round in the same dispatch', () => {
   // endRound runs inside the dispatch that busts the last seat or lands the
   // seventh number, and it appends a score line per seat. Anything reading
