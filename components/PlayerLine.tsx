@@ -113,6 +113,10 @@ export const PlayerLine: React.FC<{
   const numbers = player.line.filter(c => c.kind === 'number');
   const extras = player.line.filter(c => c.kind !== 'number');
 
+  // Stayed, frozen or busted: nothing more is coming to this line. Flipping
+  // seven is left bright, since that seat has just won the round.
+  const out = player.status === 'stayed' || busted;
+
   const Wrapper: React.ElementType = targetable ? 'button' : 'div';
 
   return (
@@ -121,6 +125,7 @@ export const PlayerLine: React.FC<{
       className={`
         w-full text-left rounded-2xl px-3 py-2 transition-all
         ${targetable ? 'cursor-pointer hover:brightness-125 animate-accent-pulse' : ''}
+        ${out ? 'f7-seat--out' : ''}
         ${busted ? 'f7-seat--bust' : ''}
         ${player.status === 'flipped7' ? 'f7-seat--seven' : ''}
         ${flash ? `f7-seat--flash-${flash}` : ''}
@@ -131,7 +136,6 @@ export const PlayerLine: React.FC<{
           targetable ? 'var(--accent)' : isTurn ? 'var(--accent-soft)' : 'var(--line)'
         }`,
         boxShadow: isTurn ? '0 0 0 1px var(--accent-soft), 0 4px 16px rgba(0,0,0,0.35)' : undefined,
-        opacity: busted ? 0.72 : 1,
       }}
     >
       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
