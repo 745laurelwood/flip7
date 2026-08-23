@@ -49,6 +49,11 @@ export interface Player {
   status: PlayerStatus;
   /** Unused Second Chance, held against a future duplicate. */
   hasSecondChance: boolean;
+  /**
+   * Stopped by a Freeze rather than by choice. The status is `stayed` either
+   * way, because the effect is the same, but the two do not read the same.
+   */
+  frozen?: boolean;
   /** Banked across rounds. First past the target wins. */
   total: number;
   /** What this seat scored in the round just finished, for the summary. */
@@ -89,21 +94,34 @@ export interface FlipThreeRun {
   deferred: ActionCard[];
 }
 
+/** Things worth hearing, and sometimes worth stopping the table for. */
+export type MomentKind = 'save' | 'freeze' | 'bust' | 'flip7' | 'stay';
+
 /**
- * The most recent Second Chance spent.
+ * The last thing that happened worth reacting to.
  *
- * A save leaves nothing behind in a line: the duplicate and the Second Chance
- * both go straight to the discard, so the only thing that changes is a card
- * quietly disappearing. This is what the table has to work from to show it.
+ * Cues used to be picked by matching words in the newest log line, which
+ * misses anything that ends the round: `endRound` appends a score line per
+ * seat in the same dispatch, so the bust or the seven is no longer the last
+ * thing written. What happened is recorded here instead of being read back
+ * out of the prose.
+ *
+ * A save is the case with nothing left on the table afterwards — the
+ * duplicate and the Second Chance both go straight to the discard — so this
+ * is also the only record the table has to draw it from.
  */
-export interface SaveMoment {
+export interface TableMoment {
+  kind: MomentKind;
+  /** The seat it happened to. */
   playerIndex: number;
-  /** The number that would have busted them. */
-  value: number;
+  /** The seat that did it, when somebody else did. */
+  byIndex?: number;
+  /** The number that matters: saved from, busted on, or banked by a Freeze. */
+  value?: number;
   /**
-   * Bumped on every save, and monotonic for the life of a match. The table
+   * Bumped on every moment, and monotonic for the life of a match. The table
    * watches this rather than the object, so a rebroadcast of the same state
-   * does not read as a second save.
+   * does not read as another one.
    */
   seq: number;
 }
@@ -139,8 +157,17 @@ export interface GameState {
   /** Seat that ended the round by flipping seven, or -1. */
   flipped7By: number;
 
-  /** The last Second Chance spent, or null if none has been this match. */
-  lastSave: SaveMoment | null;
+  /** The last thing worth reacting to, or null if nothing has happened yet. */
+  lastMoment: TableMoment | null;
+
+  /**
+   * The card that landed most recently, for the flip that marks it.
+   *
+   * Recorded when it is dealt rather than worked out from the table: the last
+   * card in seat order belongs to whichever seat sits furthest down, which is
+   * almost never the one that just drew.
+   */
+  lastCardId: string | null;
 
   gameLog: string[];
   chatLog: ChatMessage[];

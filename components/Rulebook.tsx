@@ -20,7 +20,7 @@ const ACTION_NOTES: { action: ActionKind; name: string; text: React.ReactNode }[
   {
     action: 'secondChance',
     name: 'Second Chance',
-    text: 'That player holds it against a duplicate. Nobody holds two \u2014 a spare goes to someone without one, or is discarded.',
+    text: 'You keep it, and it saves you from the first duplicate you draw. Nobody holds two, so a spare goes to someone without one, or is discarded.',
   },
 ];
 
@@ -95,8 +95,9 @@ export const Rulebook: React.FC<{ onClose: () => void }> = ({ onClose }) => (
       <section className="mb-8">
         <h2 className="font-display text-xl sm:text-2xl mb-3">Action cards</h2>
         <p className="mb-3" style={{ color: 'var(--fg-soft)' }}>
-          Draw one and you choose who it lands on, yourself included. If you are the last player still
-          in the round, it lands on you.
+          Draw a Freeze or a Flip Three and you choose who it lands on, yourself included. If you are
+          the last player still in the round, it lands on you. A Second Chance is not a choice: it is
+          yours. Only a spare, drawn when you are already holding one, has to be given away.
         </p>
         <ul className="space-y-3" style={{ color: 'var(--fg-soft)' }}>
           {ACTION_NOTES.map(({ action, name, text }) => (

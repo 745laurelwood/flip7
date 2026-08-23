@@ -2,6 +2,7 @@ import React from 'react';
 import { Flip7Card, Player } from '../types';
 import { FLIP_7_COUNT, numbersIn, scoreLine } from '../rules';
 import { Flip7CardFace } from './Flip7Card';
+import { IconFreeze } from './cardArt';
 
 const STATUS_LABEL: Record<Player['status'], string> = {
   active: '',
@@ -15,6 +16,39 @@ const STATUS_COLOR: Record<Player['status'], string> = {
   stayed: 'var(--good)',
   busted: 'var(--red)',
   flipped7: 'var(--gold)',
+};
+
+/**
+ * Why this seat stopped.
+ *
+ * Being frozen and staying leave the same status behind, because they have
+ * the same effect, but one of them was a choice and the other was done to
+ * you. The snowflake is the same one on the card that did it.
+ */
+const StatusBadge: React.FC<{ player: Player }> = ({ player }) => {
+  if (player.status === 'active') return null;
+
+  if (player.frozen) {
+    return (
+      <span
+        className="text-[10px] uppercase tracking-[0.14em] font-bold inline-flex items-center gap-1"
+        style={{ color: 'var(--freeze)' }}
+        title="Frozen — stopped by a Freeze card"
+      >
+        <span className="w-3 h-3 shrink-0"><IconFreeze /></span>
+        Frozen
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="text-[10px] uppercase tracking-[0.14em] font-bold"
+      style={{ color: STATUS_COLOR[player.status] }}
+    >
+      {STATUS_LABEL[player.status]}
+    </span>
+  );
 };
 
 /**
@@ -65,13 +99,23 @@ export const PlayerLine: React.FC<{
   targetable?: boolean;
   onTarget?: () => void;
   freshCardId?: string | null;
-  /** Flashes the seat while a Second Chance it just spent is being shown. */
-  saved?: boolean;
-}> = ({ player, isMe, isTurn, targetable = false, onTarget, freshCardId, saved = false }) => {
+  /** Flashes the seat while a moment it is part of is being shown. */
+  flash?: 'save' | 'freeze' | null;
+}> = ({ player, isMe, isTurn, targetable = false, onTarget, freshCardId, flash = null }) => {
   const busted = player.status === 'busted';
   const standing = scoreLine(player.line, { busted });
   const uniques = new Set(numbersIn(player.line)).size;
   const duplicate = busted ? bustedOn(player.line) : null;
+
+  // Only numbers count towards the seven, so they get the row on their own.
+  // Everything else drops underneath, smaller, where it cannot be mistaken
+  // for progress.
+  const numbers = player.line.filter(c => c.kind === 'number');
+  const extras = player.line.filter(c => c.kind !== 'number');
+
+  // Stayed, frozen or busted: nothing more is coming to this line. Flipping
+  // seven is left bright, since that seat has just won the round.
+  const out = player.status === 'stayed' || busted;
 
   const Wrapper: React.ElementType = targetable ? 'button' : 'div';
 
@@ -81,9 +125,10 @@ export const PlayerLine: React.FC<{
       className={`
         w-full text-left rounded-2xl px-3 py-2 transition-all
         ${targetable ? 'cursor-pointer hover:brightness-125 animate-accent-pulse' : ''}
+        ${out ? 'f7-seat--out' : ''}
         ${busted ? 'f7-seat--bust' : ''}
         ${player.status === 'flipped7' ? 'f7-seat--seven' : ''}
-        ${saved ? 'f7-seat--saved' : ''}
+        ${flash ? `f7-seat--flash-${flash}` : ''}
       `}
       style={{
         background: isMe ? 'var(--bg-2)' : 'var(--bg-1)',
@@ -91,7 +136,6 @@ export const PlayerLine: React.FC<{
           targetable ? 'var(--accent)' : isTurn ? 'var(--accent-soft)' : 'var(--line)'
         }`,
         boxShadow: isTurn ? '0 0 0 1px var(--accent-soft), 0 4px 16px rgba(0,0,0,0.35)' : undefined,
-        opacity: busted ? 0.72 : 1,
       }}
     >
       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -108,14 +152,7 @@ export const PlayerLine: React.FC<{
           {player.total}
         </span>
 
-        {player.status !== 'active' && (
-          <span
-            className="text-[10px] uppercase tracking-[0.14em] font-bold"
-            style={{ color: STATUS_COLOR[player.status] }}
-          >
-            {STATUS_LABEL[player.status]}
-          </span>
-        )}
+        <StatusBadge player={player} />
 
         {isTurn && (
           <span
@@ -139,22 +176,36 @@ export const PlayerLine: React.FC<{
       </div>
 
       <div className="f7-line min-h-[4.9rem] sm:min-h-[5.6rem]">
-        {player.line.length === 0 && (
+        {numbers.length === 0 && (
           <span className="text-[11px] italic self-center" style={{ color: 'var(--dimmer)' }}>
             nothing yet
           </span>
         )}
-        {player.line.map(card => (
+        {numbers.map(card => (
           <Flip7CardFace
             key={card.id}
             card={card}
             faded={busted}
             fresh={card.id === freshCardId}
-            duplicate={duplicate !== null && card.kind === 'number' && card.value === duplicate}
-            held={card.kind === 'action' && card.action === 'secondChance'}
+            duplicate={card.kind === 'number' && card.value === duplicate}
           />
         ))}
       </div>
+
+      {extras.length > 0 && (
+        <div className="f7-line f7-line--extras" title="These do not count towards the seven">
+          {extras.map(card => (
+            <Flip7CardFace
+              key={card.id}
+              card={card}
+              size="sm"
+              faded={busted}
+              fresh={card.id === freshCardId}
+              held={card.kind === 'action' && card.action === 'secondChance'}
+            />
+          ))}
+        </div>
+      )}
     </Wrapper>
   );
 };

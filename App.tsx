@@ -1,20 +1,20 @@
-import React, { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { useEffect, useReducer, useRef, useState } from 'react';
 import mqtt from 'mqtt';
 import { GameLog, ChatRoom } from '@laurelwood/card-class';
 import { Action, gameReducer, INITIAL_STATE, makeEmptyPlayer } from './gameReducer';
 import { GameProvider, GameContextValue } from './GameContext';
 import { FeltContent } from './components/FeltContent';
 import { RoundSummary } from './components/RoundSummary';
-import { SaveBanner } from './components/SaveBanner';
+import { MomentBanner, isShownMoment } from './components/MomentBanner';
 import { Lobby } from './views/Lobby';
-import { sounds } from './utils/sound';
+import { MOMENT_CUES, sounds } from './utils/sound';
 import { chooseTarget, shouldHit } from './utils/ai';
 import { MQTT_BROKER, redactForWire, roomTopic } from './utils/net';
 import { clearSession, loadSession, saveSession, SavedSession } from './utils/session';
-import { ChatMessage, GameState, Player, SaveMoment, Spectator } from './types';
+import { ChatMessage, GameState, Player, Spectator, TableMoment } from './types';
 import {
   AI_AIM_DELAY_MS, AI_TURN_DELAY_MS, CHAT_MAX_LEN, EMPTY_SLOT_NAME,
-  FLIP_THREE_STEP_MS, ROUND_END_DELAY_MS, SAVE_SHOW_MS, Z_HUD,
+  FLIP_THREE_STEP_MS, MOMENT_SHOW_MS, ROUND_END_DELAY_MS, Z_HUD,
 } from './constants';
 import { DEFAULT_PLAYERS } from './rules';
 
@@ -385,42 +385,60 @@ export default function App() {
     finish();
   };
 
-  // ── The card that landed most recently, for the ring that marks it ──
-  const freshCardId = useMemo(() => {
-    const lines = state.players.flatMap(p => p.line);
-    return lines.length > 0 ? lines[lines.length - 1].id : null;
-  }, [state.players]);
 
-  // ── A Second Chance spent, held up for a beat ──
-  // Watches the sequence number rather than the object: a client is sent the
-  // whole state every few seconds, and each of those is a fresh object that
-  // would otherwise read as another save. Lives here rather than in the table
-  // so that a round ending right after a save does not cut the news short.
-  const [save, setSave] = useState<SaveMoment | null>(null);
-  const seenSaveRef = useRef<number | null>(null);
+  // ── What just happened ──
+  // One place decides what the table sounds, because a card landing and the
+  // moment it caused arrive in the same commit and only one of them should be
+  // heard. Watches the sequence number rather than the object: a client is
+  // sent the whole state every few seconds, and each of those is a fresh
+  // object that would otherwise read as another moment. Lives here rather
+  // than in the table so a round ending right after one does not cut it short.
+  const [moment, setMoment] = useState<TableMoment | null>(null);
+  const seenRef = useRef<{ seq: number; card: string | null } | null>(null);
 
   useEffect(() => {
     // Back in the lobby there is nothing to watch, and the next match starts
     // its count again, so the anchor is dropped here rather than carried over.
     if (state.gamePhase === 'LOBBY') {
-      seenSaveRef.current = null;
-      setSave(null);
+      seenRef.current = null;
+      setMoment(null);
       return;
     }
-    const seq = state.lastSave?.seq ?? 0;
+
+    const seq = state.lastMoment?.seq ?? 0;
+    const card = state.lastCardId;
+    const seen = seenRef.current;
+    seenRef.current = { seq, card };
+
     // The first state this client sees in play is history, not news: joining
-    // a room mid-match, or resuming one, arrives with saves already in it.
-    if (seenSaveRef.current === null) {
-      seenSaveRef.current = seq;
-      return;
+    // a room mid-match, or resuming one, arrives with both already set.
+    if (!seen) return;
+
+    if (seq !== seen.seq) {
+      const latest = state.lastMoment;
+      if (!latest) return;
+      MOMENT_CUES[latest.kind]();
+      if (!isShownMoment(latest)) return;
+      setMoment(latest);
+      const timer = setTimeout(() => setMoment(null), MOMENT_SHOW_MS);
+      return () => clearTimeout(timer);
     }
-    if (seq === seenSaveRef.current) return;
-    seenSaveRef.current = seq;
-    setSave(state.lastSave);
-    sounds.save();
-    const timer = setTimeout(() => setSave(null), SAVE_SHOW_MS);
+
+    // A card landed with nothing else attached to it. Driven off the state
+    // rather than the dispatch sites, so everyone at the table hears every
+    // card instead of the host hearing only its own.
+    if (card !== null && card !== seen.card) sounds.flip();
+  }, [state.lastMoment?.seq, state.lastCardId, state.gamePhase]);
+
+  // ── The round, and the match, being over ──
+  // Held back a beat so it lands after whatever ended it rather than on top
+  // of it: a bust and the round ending arrive in the same dispatch.
+  useEffect(() => {
+    if (state.gamePhase !== 'ROUND_OVER' && state.gamePhase !== 'GAME_OVER') return;
+    const over = state.gamePhase === 'GAME_OVER';
+    const timer = setTimeout(() => (over ? sounds.win() : sounds.roundOver()), 480);
     return () => clearTimeout(timer);
-  }, [state.lastSave?.seq, state.gamePhase]);
+  }, [state.gamePhase]);
 
   const me = state.players[myIndex];
   const myTurn =
@@ -432,7 +450,13 @@ export default function App() {
     && me?.status === 'active';
 
   const awaitingMyAim = !isSpectator && !!state.pendingAction && state.pendingAction.drawnBy === myIndex;
-  const legalTargets = state.players.filter(p => p.status === 'active').map(p => p.id);
+  const active = state.players.filter(p => p.status === 'active');
+  // A spare Second Chance is the one action card that cannot go anywhere:
+  // only a seat not already holding one can take it.
+  const legalTargets = (state.pendingAction?.action === 'secondChance'
+    ? active.filter(p => !p.hasSecondChance)
+    : active
+  ).map(p => p.id);
 
   // ── Bots: hit or stay ──
   useEffect(() => {
@@ -444,7 +468,6 @@ export default function App() {
 
     const timer = setTimeout(() => {
       if (shouldHit(state, player)) {
-        sounds.flip();
         dispatch({ type: 'HIT', payload: { playerIndex: player.id } });
       } else {
         dispatch({ type: 'STAY', payload: { playerIndex: player.id } });
@@ -462,7 +485,6 @@ export default function App() {
     if (!drawer || drawer.isHuman) return;
 
     const timer = setTimeout(() => {
-      if (pending.action === 'freeze') sounds.freeze();
       dispatch({
         type: 'AIM_ACTION',
         payload: { playerIndex: drawer.id, target: chooseTarget(state, drawer.id, pending.action) },
@@ -478,7 +500,6 @@ export default function App() {
     if (!isDriver) return;
     if (state.gamePhase !== 'PLAYING' || !state.flipThree) return;
     const timer = setTimeout(() => {
-      sounds.flip();
       dispatch({ type: 'RESOLVE_FLIP_THREE' });
     }, FLIP_THREE_STEP_MS);
     return () => clearTimeout(timer);
@@ -493,16 +514,6 @@ export default function App() {
     const timer = setTimeout(() => dispatch({ type: 'END_ROUND' }), ROUND_END_DELAY_MS);
     return () => clearTimeout(timer);
   }, [isDriver, state.gamePhase, state.players, state.pendingAction, state.flipThree]);
-
-  // ── Sound for the moments worth hearing ──
-  const lastLogRef = useRef('');
-  useEffect(() => {
-    const latest = state.gameLog[state.gameLog.length - 1] ?? '';
-    if (latest === lastLogRef.current) return;
-    lastLogRef.current = latest;
-    if (latest.includes('busts')) sounds.bust();
-    else if (latest.includes('flipped 7')) sounds.flip7();
-  }, [state.gameLog]);
 
   // ── Chat ──
   const lastChatRef = useRef(0);
@@ -545,7 +556,6 @@ export default function App() {
     canStay: myTurn,
     executeHit: () => {
       if (!myTurn) return;
-      sounds.flip();
       handleDispatch({ type: 'HIT', payload: { playerIndex: myIndex } });
     },
     executeStay: () => {
@@ -558,8 +568,8 @@ export default function App() {
       if (!awaitingMyAim) return;
       handleDispatch({ type: 'AIM_ACTION', payload: { playerIndex: myIndex, target } });
     },
-    freshCardId,
-    save,
+    freshCardId: state.lastCardId,
+    moment,
     startRound: () => { if (isDriver) dispatch({ type: 'START_ROUND' }); },
     returnToLobby: () => handleDispatch({ type: 'RETURN_TO_LOBBY', payload: { playerIndex: myIndex } }),
     logEndRef,
@@ -630,15 +640,35 @@ export default function App() {
             </div>
           )}
 
-          {save && (
-            <SaveBanner
-              save={save}
-              name={state.players[save.playerIndex]?.name ?? 'They'}
-              isMe={save.playerIndex === myIndex}
-            />
+          {moment && (
+            <MomentBanner moment={moment} players={state.players} myIndex={myIndex} />
           )}
 
           {roundOver ? <RoundSummary /> : <FeltContent />}
+
+          {chatEnabled && (
+            // Pinned over the table while the round runs, where it clears the
+            // Hit and Stay bar. Once the round is over that bar is gone and
+            // the scoreboard is the whole screen, so the chat drops into the
+            // page underneath it rather than floating across the scores.
+            <div
+              className={roundOver
+                ? 'flex justify-end mt-5'
+                : 'fixed right-0 flex justify-end p-2 sm:p-3 pointer-events-none'}
+              style={roundOver ? undefined : { zIndex: Z_HUD, bottom: 'calc(var(--safe-b) + 5rem)' }}
+            >
+              <div className={roundOver ? undefined : 'pointer-events-auto'}>
+                <ChatRoom
+                  messages={state.chatLog ?? []}
+                  myIndex={myIndex}
+                  unread={chatUnread}
+                  onOpen={() => setChatUnread(0)}
+                  onClose={() => setChatUnread(0)}
+                  onSend={sendChat}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {!roundOver && !isSpectator && (
@@ -670,24 +700,6 @@ export default function App() {
             >
               Hit
             </button>
-          </div>
-        )}
-
-        {chatEnabled && (
-          <div
-            className="fixed right-0 flex justify-end p-2 sm:p-3 pointer-events-none"
-            style={{ zIndex: Z_HUD, bottom: 'calc(var(--safe-b) + 5rem)' }}
-          >
-            <div className="pointer-events-auto">
-              <ChatRoom
-                messages={state.chatLog ?? []}
-                myIndex={myIndex}
-                unread={chatUnread}
-                onOpen={() => setChatUnread(0)}
-                onClose={() => setChatUnread(0)}
-                onSend={sendChat}
-              />
-            </div>
           </div>
         )}
 

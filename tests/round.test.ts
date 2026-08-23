@@ -86,31 +86,31 @@ describe('busting', () => {
     expect(state.players[0].line.some(c => c.kind === 'action')).toBe(false);
     // Neither card is anywhere on the table afterwards, so the save is the
     // only record of what happened.
-    expect(state.lastSave).toEqual({ playerIndex: 0, value: 7, seq: 1 });
+    expect(state.lastMoment).toEqual({ kind: 'save', playerIndex: 0, value: 7, seq: 1 });
   });
 
-  it('counts each save, so a resent state does not read as a new one', () => {
+  it('counts each moment, so a resent state does not read as a new one', () => {
     const start = table(1, [
       act('secondChance', '1'), num(7, 'a'), num(7, 'b'),
       act('secondChance', '2'), num(4, 'a'), num(4, 'b'),
     ]);
-    expect(start.lastSave).toBeNull();
+    expect(start.lastMoment).toBeNull();
 
     const first = run(start, hit(0), hit(0), hit(0));
-    expect(first.lastSave).toEqual({ playerIndex: 0, value: 7, seq: 1 });
+    expect(first.lastMoment).toEqual({ kind: 'save', playerIndex: 0, value: 7, seq: 1 });
 
     const second = run(first, hit(0), hit(0), hit(0));
-    expect(second.lastSave).toEqual({ playerIndex: 0, value: 4, seq: 2 });
+    expect(second.lastMoment).toEqual({ kind: 'save', playerIndex: 0, value: 4, seq: 2 });
   });
 
-  it('leaves the save alone when the next duplicate actually busts', () => {
+  it('records the bust that follows as its own moment', () => {
     const saved = run(
       table(1, [act('secondChance'), num(7, 'a'), num(7, 'b'), num(4, 'a'), num(4, 'b')]),
       hit(0), hit(0), hit(0),
     );
     const busted = run(saved, hit(0), hit(0));
     expect(busted.players[0].status).toBe('busted');
-    expect(busted.lastSave).toEqual(saved.lastSave);
+    expect(busted.lastMoment).toEqual({ kind: 'bust', playerIndex: 0, value: 4, seq: 2 });
   });
 
   it('busts on the next duplicate once the Second Chance is gone', () => {
@@ -119,6 +119,105 @@ describe('busting', () => {
       hit(0), hit(0), hit(0), hit(0), hit(0),
     );
     expect(state.players[0].status).toBe('busted');
+  });
+});
+
+describe('being frozen', () => {
+  it('stops the seat the way staying does, but says it was not their idea', () => {
+    const state = run(
+      table(2, [act('freeze'), num(4)]),
+      hit(0), aim(0, 1),
+    );
+    expect(state.players[1].status).toBe('stayed');
+    expect(state.players[1].frozen).toBe(true);
+    expect(state.players[0].frozen).toBeFalsy();
+  });
+
+  it('is recorded as a moment naming both seats and what was banked', () => {
+    // Seat 1 banks a 9 first, then seat 0 draws the Freeze and aims it there.
+    const state = run(
+      table(2, [num(4), num(9), act('freeze')]),
+      hit(0), hit(1), hit(0), aim(0, 1),
+    );
+    expect(state.lastMoment).toEqual({
+      kind: 'freeze', playerIndex: 1, byIndex: 0, value: 9, seq: 1,
+    });
+  });
+
+  it('is not carried into the next round', () => {
+    const frozen = run(table(2, [act('freeze'), num(4)]), hit(0), aim(0, 1));
+    const next = gameReducer(
+      { ...frozen, gamePhase: 'ROUND_OVER' },
+      { type: 'START_ROUND' },
+    );
+    expect(next.players[1].frozen).toBe(false);
+    expect(next.players[1].status).toBe('active');
+  });
+});
+
+describe('moments that end the round in the same dispatch', () => {
+  // endRound runs inside the dispatch that busts the last seat or lands the
+  // seventh number, and it appends a score line per seat. Anything reading
+  // the newest log entry to work out what happened misses both.
+
+  it('records the bust that ends a round', () => {
+    const state = run(
+      table(2, [num(5, 'a'), num(9), num(5, 'b')]),
+      hit(0), stay(1), hit(0), hit(0),
+    );
+    expect(state.gamePhase).toBe('ROUND_OVER');
+    expect(state.players[0].status).toBe('busted');
+    // Seat 1 staying is a moment of its own, so the bust is the second.
+    expect(state.lastMoment).toEqual({ kind: 'bust', playerIndex: 0, value: 5, seq: 2 });
+    // The reason the old approach missed it.
+    expect(state.gameLog[state.gameLog.length - 1]).not.toContain('busts');
+  });
+
+  it('records the seventh number, which always ends the round', () => {
+    const seven = [0, 1, 2, 3, 4, 5, 6].map((v, i) => num(v, String(i)));
+    const state = run(table(1, seven), ...seven.map(() => hit(0)));
+    expect(state.gamePhase).toBe('ROUND_OVER');
+    expect(state.lastMoment).toEqual({ kind: 'flip7', playerIndex: 0, seq: 1 });
+    expect(state.gameLog[state.gameLog.length - 1]).not.toContain('flipped 7');
+  });
+});
+
+describe('the card that just landed', () => {
+  it('is the card dealt, not the last one in seat order', () => {
+    // Seats 1 and 2 already have cards when seat 0 draws its second.
+    const state = run(
+      table(3, [num(5), num(6), num(7), num(8)]),
+      hit(0), hit(1), hit(2), hit(0),
+    );
+    expect(state.players[0].line.map(c => c.id)).toEqual(['n5-', 'n8-']);
+    expect(state.lastCardId).toBe('n8-');
+  });
+
+  it('follows a spare Second Chance to whoever it was passed to', () => {
+    const state = run(
+      table(2, [act('secondChance', 'a'), num(1), act('secondChance', 'b')]),
+      hit(0), hit(1), hit(0), aim(0, 1),
+    );
+    expect(state.players[1].hasSecondChance).toBe(true);
+    expect(state.lastCardId).toBe('a-secondChance-b');
+  });
+
+  it('is cleared when a save takes both cards off the table', () => {
+    const state = run(
+      table(1, [act('secondChance'), num(7, 'a'), num(7, 'b')]),
+      hit(0), hit(0), hit(0),
+    );
+    expect(state.lastCardId).toBeNull();
+  });
+
+  it('is cleared when the next round wipes the lines', () => {
+    const dealt = run(table(2, [num(5), num(6)]), hit(0));
+    expect(dealt.lastCardId).not.toBeNull();
+    const next = gameReducer(
+      { ...dealt, gamePhase: 'ROUND_OVER' },
+      { type: 'START_ROUND' },
+    );
+    expect(next.lastCardId).toBeNull();
   });
 });
 
@@ -237,26 +336,47 @@ describe('action cards', () => {
   });
 
   describe('second chance', () => {
-    it('goes to the target and arms them', () => {
-      const state = gameReducer(table(2, [act('secondChance')]), hit(0));
-      const aimed = gameReducer(state, aim(0, 1));
-      expect(aimed.players[1].hasSecondChance).toBe(true);
-      expect(aimed.players[0].hasSecondChance).toBe(false);
+    it('goes to whoever drew it, without asking', () => {
+      const state = gameReducer(table(3, [act('secondChance')]), hit(0));
+      expect(state.pendingAction).toBeNull();
+      expect(state.players[0].hasSecondChance).toBe(true);
+      expect(state.players[1].hasSecondChance).toBe(false);
+      // The turn moves on, rather than sitting on a choice nobody has.
+      expect(state.currentTurn).toBe(1);
     });
 
-    it('is passed on rather than stacked when the target already holds one', () => {
-      const state = run(
+    it('is a choice only once the drawer is already holding one', () => {
+      const armed = gameReducer(
         table(2, [act('secondChance', 'a'), num(1), act('secondChance', 'b')]),
-        hit(0),          // seat 0 draws one
+        hit(0),
       );
-      const armed = gameReducer(state, aim(0, 0));
       expect(armed.players[0].hasSecondChance).toBe(true);
-      const s = run(armed, hit(1), hit(0));
-      // Seat 0 draws the second one and aims it at themselves; it should land
-      // on seat 1 instead, since nobody holds two.
-      const aimed = gameReducer(s, aim(0, 0));
-      expect(aimed.players[0].line.filter(c => c.kind === 'action')).toHaveLength(1);
+
+      const spare = run(armed, hit(1), hit(0));
+      expect(spare.pendingAction?.action).toBe('secondChance');
+
+      const aimed = gameReducer(spare, aim(0, 1));
       expect(aimed.players[1].hasSecondChance).toBe(true);
+      expect(aimed.players[0].line.filter(c => c.kind === 'action')).toHaveLength(1);
+    });
+
+    it('will not let a spare be aimed back at a seat already holding one', () => {
+      const spare = run(
+        table(2, [act('secondChance', 'a'), num(1), act('secondChance', 'b')]),
+        hit(0), hit(1), hit(0),
+      );
+      expect(gameReducer(spare, aim(0, 0))).toBe(spare);
+    });
+
+    it('is discarded without asking when nobody else can take it', () => {
+      const both = run(
+        table(2, [act('secondChance', 'a'), act('secondChance', 'b'), act('secondChance', 'c')]),
+        hit(0), hit(1), hit(0),
+      );
+      expect(both.players[0].hasSecondChance).toBe(true);
+      expect(both.players[1].hasSecondChance).toBe(true);
+      expect(both.pendingAction).toBeNull();
+      expect(both.discard.some(c => c.id === 'a-secondChance-c')).toBe(true);
     });
 
     it('is discarded when everyone already holds one', () => {

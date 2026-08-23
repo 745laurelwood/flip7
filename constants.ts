@@ -18,5 +18,5 @@ export const AI_AIM_DELAY_MS = 650;
 export const FLIP_THREE_STEP_MS = 600;
 export const ROUND_END_DELAY_MS = 900;
 
-/** How long the table holds up the two cards a Second Chance just spent. */
-export const SAVE_SHOW_MS = 2600;
+/** How long the table holds up a moment it stops to show, like a save. */
+export const MOMENT_SHOW_MS = 2600;

@@ -1,6 +1,6 @@
 import {
-  ActionCard, ActionKind, ChatMessage, Flip7Card, GameState, PendingAction,
-  Player, Spectator,
+  ActionCard, ActionKind, ChatMessage, Flip7Card, GameState,
+  PendingAction, Player, Spectator, TableMoment,
 } from './types';
 import { createDeck, drawCard, shuffle } from './utils/deck';
 import { EMPTY_SLOT_NAME, MAX_LOG_ENTRIES, CHAT_MAX_HISTORY, pickBotNames } from './constants';
@@ -39,7 +39,8 @@ export const INITIAL_STATE: GameState = {
   pendingAction: null,
   flipThree: null,
   flipped7By: -1,
-  lastSave: null,
+  lastMoment: null,
+  lastCardId: null,
   gameLog: [],
   chatLog: [],
   spectators: [],
@@ -62,6 +63,10 @@ export const isValidGameState = (s: any): s is GameState =>
 
 const logPush = (log: string[], entry: string): string[] =>
   [...log, entry].slice(-MAX_LOG_ENTRIES);
+
+/** Stamps a moment with the next sequence number. */
+const moment = (state: GameState, m: Omit<TableMoment, 'seq'>): TableMoment =>
+  ({ ...m, seq: (state.lastMoment?.seq ?? 0) + 1 });
 
 const clampSeats = (n: number): number =>
   Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, Math.round(n)));
@@ -106,7 +111,8 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         ? {
             ...action.payload,
             chatLog: action.payload.chatLog ?? [],
-            lastSave: action.payload.lastSave ?? null,
+            lastMoment: action.payload.lastMoment ?? null,
+            lastCardId: action.payload.lastCardId ?? null,
           }
         : state;
 
@@ -174,6 +180,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         line: [],
         status: 'active' as const,
         hasSecondChance: false,
+        frozen: false,
         lastRoundScore: 0,
       }));
 
@@ -190,6 +197,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         pendingAction: null,
         flipThree: null,
         flipped7By: -1,
+        lastCardId: null,
         gameLog: [`Round ${roundNumber} — ${players[firstPlayer].name} goes first`],
       };
     }
@@ -206,6 +214,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       return advance(
         {
           ...stayed,
+          lastMoment: moment(state, { kind: 'stay', playerIndex }),
           gameLog: logPush(state.gameLog, `${player.name} stays on ${scorePlayer(stayed.players[playerIndex])}`),
         },
         playerIndex,
@@ -234,6 +243,9 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       if (!pending || pending.drawnBy !== playerIndex) return state;
       const targetPlayer = state.players[target];
       if (!targetPlayer || !isInRound(targetPlayer)) return state;
+      // The prompt only opens for a spare, and a spare is no use to a seat
+      // that is already holding one.
+      if (pending.action === 'secondChance' && targetPlayer.hasSecondChance) return state;
 
       return resolveAction(state, pending, target);
     }
@@ -272,7 +284,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         roomId: state.roomId,
         players: state.players.map(p => ({
           ...p, line: [], status: 'active' as const,
-          hasSecondChance: false, total: 0, lastRoundScore: 0,
+          hasSecondChance: false, frozen: false, total: 0, lastRoundScore: 0,
         })),
       };
     }
@@ -345,6 +357,7 @@ function dealTo(state: GameState, index: number): GameState {
     return {
       ...base,
       players,
+      lastCardId: card.id,
       gameLog: logPush(base.gameLog, `${player.name} drew ${MODIFIER_LABELS[card.modifier]}`),
     };
   }
@@ -370,9 +383,10 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
         ...state,
         players,
         discard: [...state.discard, card, ...discarded],
+        lastCardId: null,
         // Both cards have just left the table, so the save is recorded rather
         // than shown. Rounds do not reset it: the count is per match.
-        lastSave: { playerIndex: index, value, seq: (state.lastSave?.seq ?? 0) + 1 },
+        lastMoment: moment(state, { kind: 'save', playerIndex: index, value }),
         gameLog: logPush(state.gameLog, `${player.name} drew a second ${value} — Second Chance saves them`),
       };
     }
@@ -380,6 +394,8 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
     return {
       ...state,
       players,
+      lastCardId: card.id,
+      lastMoment: moment(state, { kind: 'bust', playerIndex: index, value }),
       gameLog: logPush(state.gameLog, `${player.name} drew a second ${value} and busts`),
     };
   }
@@ -390,7 +406,9 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
   const withCard: GameState = {
     ...state,
     players,
+    lastCardId: card.id,
     flipped7By: flipped ? index : state.flipped7By,
+    lastMoment: flipped ? moment(state, { kind: 'flip7', playerIndex: index }) : state.lastMoment,
     gameLog: logPush(
       state.gameLog,
       flipped
@@ -399,6 +417,22 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
     ),
   };
   return withCard;
+}
+
+/**
+ * Whether an action card that has just come up needs pointing at somebody.
+ *
+ * Freeze and Flip Three always do, as long as anyone else is still in. A
+ * Second Chance does not: by the rules it goes to whoever drew it. The only
+ * time there is a choice is a spare, drawn by somebody already holding one,
+ * and that has to go to a seat without one or be discarded.
+ */
+function needsAiming(state: GameState, drawnBy: number, action: ActionKind): boolean {
+  const others = state.players.filter(p => p.id !== drawnBy && isInRound(p));
+  if (others.length === 0) return false;
+  if (action !== 'secondChance') return true;
+  if (!state.players[drawnBy]?.hasSecondChance) return false;
+  return others.some(p => !p.hasSecondChance);
 }
 
 function applyAction(state: GameState, index: number, card: ActionCard): GameState {
@@ -415,10 +449,7 @@ function applyAction(state: GameState, index: number, card: ActionCard): GameSta
     };
   }
 
-  // With nobody else left in the round it can only land on the drawer, so
-  // don't make them click.
-  const others = state.players.filter(p => p.id !== index && isInRound(p));
-  if (others.length === 0) {
+  if (!needsAiming(state, index, card.action)) {
     return resolveAction({ ...state, pendingAction: pending, gameLog: log }, pending, index);
   }
   return { ...state, pendingAction: pending, gameLog: log };
@@ -439,16 +470,26 @@ function resolveAction(state: GameState, pending: PendingAction, target: number)
   };
 
   if (pending.action === 'freeze') {
-    const frozen = withStatus(
+    const stopped = withStatus(
       { ...cleared, discard: [...cleared.discard, { kind: 'action', action: 'freeze', id: pending.cardId }] },
       target,
       'stayed',
     );
-    const banked = logPush(
-      frozen.gameLog,
-      `${targetPlayer.name} is frozen on ${scorePlayer(frozen.players[target])}`,
-    );
-    return continueAfterAction({ ...frozen, gameLog: banked }, pending.drawnBy);
+    // Same status as staying, because the effect is the same. The flag is what
+    // lets the table say it was done to them rather than chosen.
+    const frozen: GameState = {
+      ...stopped,
+      players: stopped.players.map(p => (p.id === target ? { ...p, frozen: true } : p)),
+    };
+    const score = scorePlayer(frozen.players[target]);
+    const banked = logPush(frozen.gameLog, `${targetPlayer.name} is frozen on ${score}`);
+    return continueAfterAction({
+      ...frozen,
+      gameLog: banked,
+      lastMoment: moment(frozen, {
+        kind: 'freeze', playerIndex: target, byIndex: pending.drawnBy, value: score,
+      }),
+    }, pending.drawnBy);
   }
 
   if (pending.action === 'secondChance') {
@@ -480,7 +521,7 @@ function giveSecondChance(state: GameState, target: number, cardId: string): Gam
   const p = players[target];
   const card: ActionCard = { kind: 'action', action: 'secondChance', id: cardId };
   players[target] = { ...p, line: [...p.line, card], hasSecondChance: true };
-  return { ...state, players };
+  return { ...state, players, lastCardId: card.id };
 }
 
 /**
@@ -520,8 +561,9 @@ function finishFlipThree(state: GameState): GameState {
     ? { ...rest, flipThree: { target: run.target, remaining: 0, deferred } }
     : rest;
 
-  const others = queued.players.filter(p => p.id !== run.target && isInRound(p));
-  if (others.length === 0) return resolveAction({ ...queued, pendingAction: pending }, pending, run.target);
+  if (!needsAiming(queued, run.target, next.action)) {
+    return resolveAction({ ...queued, pendingAction: pending }, pending, run.target);
+  }
   return { ...queued, pendingAction: pending };
 }
 

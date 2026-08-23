@@ -28,11 +28,11 @@ Get **seven different numbers** in front of you and the round ends immediately f
 
 ### Action cards
 
-Draw one and you choose who it lands on, yourself included. If you are the last player still in the round, it lands on you.
+Draw a Freeze or a Flip Three and you choose who it lands on, yourself included. A Second Chance is yours; only a spare, drawn while you are already holding one, has to be given away. If you are the last player still in the round, it lands on you.
 
 - **Freeze** — that player stays right now, banking whatever they have.
 - **Flip Three** — that player draws three cards, one at a time. Busting stops the run, and anything they turn up along the way waits until it is over.
-- **Second Chance** — that player holds it against a duplicate. Nobody holds two: a spare goes to someone without one, or is discarded.
+- **Second Chance** — you keep it, and it saves you from the first duplicate you draw. Nobody holds two: a spare goes to someone without one, or is discarded.
 
 ### Scoring
 
