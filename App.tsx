@@ -387,40 +387,58 @@ export default function App() {
 
 
   // ── What just happened ──
-  // Watches the sequence number rather than the object: a client is sent the
-  // whole state every few seconds, and each of those is a fresh object that
-  // would otherwise read as another moment. Lives here rather than in the
-  // table so that a round ending right after one does not cut it short.
+  // One place decides what the table sounds, because a card landing and the
+  // moment it caused arrive in the same commit and only one of them should be
+  // heard. Watches the sequence number rather than the object: a client is
+  // sent the whole state every few seconds, and each of those is a fresh
+  // object that would otherwise read as another moment. Lives here rather
+  // than in the table so a round ending right after one does not cut it short.
   const [moment, setMoment] = useState<TableMoment | null>(null);
-  const seenMomentRef = useRef<number | null>(null);
+  const seenRef = useRef<{ seq: number; card: string | null } | null>(null);
 
   useEffect(() => {
     // Back in the lobby there is nothing to watch, and the next match starts
     // its count again, so the anchor is dropped here rather than carried over.
     if (state.gamePhase === 'LOBBY') {
-      seenMomentRef.current = null;
+      seenRef.current = null;
       setMoment(null);
       return;
     }
+
     const seq = state.lastMoment?.seq ?? 0;
+    const card = state.lastCardId;
+    const seen = seenRef.current;
+    seenRef.current = { seq, card };
+
     // The first state this client sees in play is history, not news: joining
-    // a room mid-match, or resuming one, arrives with moments already in it.
-    if (seenMomentRef.current === null) {
-      seenMomentRef.current = seq;
-      return;
+    // a room mid-match, or resuming one, arrives with both already set.
+    if (!seen) return;
+
+    if (seq !== seen.seq) {
+      const latest = state.lastMoment;
+      if (!latest) return;
+      MOMENT_CUES[latest.kind]();
+      if (!isShownMoment(latest)) return;
+      setMoment(latest);
+      const timer = setTimeout(() => setMoment(null), MOMENT_SHOW_MS);
+      return () => clearTimeout(timer);
     }
-    if (seq === seenMomentRef.current) return;
-    seenMomentRef.current = seq;
 
-    const latest = state.lastMoment;
-    if (!latest) return;
-    MOMENT_CUES[latest.kind]();
-    if (!isShownMoment(latest)) return;
+    // A card landed with nothing else attached to it. Driven off the state
+    // rather than the dispatch sites, so everyone at the table hears every
+    // card instead of the host hearing only its own.
+    if (card !== null && card !== seen.card) sounds.flip();
+  }, [state.lastMoment?.seq, state.lastCardId, state.gamePhase]);
 
-    setMoment(latest);
-    const timer = setTimeout(() => setMoment(null), MOMENT_SHOW_MS);
+  // ── The round, and the match, being over ──
+  // Held back a beat so it lands after whatever ended it rather than on top
+  // of it: a bust and the round ending arrive in the same dispatch.
+  useEffect(() => {
+    if (state.gamePhase !== 'ROUND_OVER' && state.gamePhase !== 'GAME_OVER') return;
+    const over = state.gamePhase === 'GAME_OVER';
+    const timer = setTimeout(() => (over ? sounds.win() : sounds.roundOver()), 480);
     return () => clearTimeout(timer);
-  }, [state.lastMoment?.seq, state.gamePhase]);
+  }, [state.gamePhase]);
 
   const me = state.players[myIndex];
   const myTurn =
@@ -450,7 +468,6 @@ export default function App() {
 
     const timer = setTimeout(() => {
       if (shouldHit(state, player)) {
-        sounds.flip();
         dispatch({ type: 'HIT', payload: { playerIndex: player.id } });
       } else {
         dispatch({ type: 'STAY', payload: { playerIndex: player.id } });
@@ -483,7 +500,6 @@ export default function App() {
     if (!isDriver) return;
     if (state.gamePhase !== 'PLAYING' || !state.flipThree) return;
     const timer = setTimeout(() => {
-      sounds.flip();
       dispatch({ type: 'RESOLVE_FLIP_THREE' });
     }, FLIP_THREE_STEP_MS);
     return () => clearTimeout(timer);
@@ -540,7 +556,6 @@ export default function App() {
     canStay: myTurn,
     executeHit: () => {
       if (!myTurn) return;
-      sounds.flip();
       handleDispatch({ type: 'HIT', payload: { playerIndex: myIndex } });
     },
     executeStay: () => {

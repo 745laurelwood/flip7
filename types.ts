@@ -95,7 +95,7 @@ export interface FlipThreeRun {
 }
 
 /** Things worth hearing, and sometimes worth stopping the table for. */
-export type MomentKind = 'save' | 'freeze' | 'bust' | 'flip7';
+export type MomentKind = 'save' | 'freeze' | 'bust' | 'flip7' | 'stay';
 
 /**
  * The last thing that happened worth reacting to.

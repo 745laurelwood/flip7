@@ -167,7 +167,8 @@ describe('moments that end the round in the same dispatch', () => {
     );
     expect(state.gamePhase).toBe('ROUND_OVER');
     expect(state.players[0].status).toBe('busted');
-    expect(state.lastMoment).toEqual({ kind: 'bust', playerIndex: 0, value: 5, seq: 1 });
+    // Seat 1 staying is a moment of its own, so the bust is the second.
+    expect(state.lastMoment).toEqual({ kind: 'bust', playerIndex: 0, value: 5, seq: 2 });
     // The reason the old approach missed it.
     expect(state.gameLog[state.gameLog.length - 1]).not.toContain('busts');
   });

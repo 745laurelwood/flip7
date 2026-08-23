@@ -214,6 +214,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       return advance(
         {
           ...stayed,
+          lastMoment: moment(state, { kind: 'stay', playerIndex }),
           gameLog: logPush(state.gameLog, `${player.name} stays on ${scorePlayer(stayed.players[playerIndex])}`),
         },
         playerIndex,
