@@ -107,6 +107,12 @@ export const PlayerLine: React.FC<{
   const uniques = new Set(numbersIn(player.line)).size;
   const duplicate = busted ? bustedOn(player.line) : null;
 
+  // Only numbers count towards the seven, so they get the row on their own.
+  // Everything else drops underneath, smaller, where it cannot be mistaken
+  // for progress.
+  const numbers = player.line.filter(c => c.kind === 'number');
+  const extras = player.line.filter(c => c.kind !== 'number');
+
   const Wrapper: React.ElementType = targetable ? 'button' : 'div';
 
   return (
@@ -166,22 +172,36 @@ export const PlayerLine: React.FC<{
       </div>
 
       <div className="f7-line min-h-[4.9rem] sm:min-h-[5.6rem]">
-        {player.line.length === 0 && (
+        {numbers.length === 0 && (
           <span className="text-[11px] italic self-center" style={{ color: 'var(--dimmer)' }}>
             nothing yet
           </span>
         )}
-        {player.line.map(card => (
+        {numbers.map(card => (
           <Flip7CardFace
             key={card.id}
             card={card}
             faded={busted}
             fresh={card.id === freshCardId}
-            duplicate={duplicate !== null && card.kind === 'number' && card.value === duplicate}
-            held={card.kind === 'action' && card.action === 'secondChance'}
+            duplicate={card.kind === 'number' && card.value === duplicate}
           />
         ))}
       </div>
+
+      {extras.length > 0 && (
+        <div className="f7-line f7-line--extras" title="These do not count towards the seven">
+          {extras.map(card => (
+            <Flip7CardFace
+              key={card.id}
+              card={card}
+              size="sm"
+              faded={busted}
+              fresh={card.id === freshCardId}
+              held={card.kind === 'action' && card.action === 'secondChance'}
+            />
+          ))}
+        </div>
+      )}
     </Wrapper>
   );
 };
