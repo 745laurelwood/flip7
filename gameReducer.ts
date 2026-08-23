@@ -242,6 +242,9 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
       if (!pending || pending.drawnBy !== playerIndex) return state;
       const targetPlayer = state.players[target];
       if (!targetPlayer || !isInRound(targetPlayer)) return state;
+      // The prompt only opens for a spare, and a spare is no use to a seat
+      // that is already holding one.
+      if (pending.action === 'secondChance' && targetPlayer.hasSecondChance) return state;
 
       return resolveAction(state, pending, target);
     }
@@ -415,6 +418,22 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
   return withCard;
 }
 
+/**
+ * Whether an action card that has just come up needs pointing at somebody.
+ *
+ * Freeze and Flip Three always do, as long as anyone else is still in. A
+ * Second Chance does not: by the rules it goes to whoever drew it. The only
+ * time there is a choice is a spare, drawn by somebody already holding one,
+ * and that has to go to a seat without one or be discarded.
+ */
+function needsAiming(state: GameState, drawnBy: number, action: ActionKind): boolean {
+  const others = state.players.filter(p => p.id !== drawnBy && isInRound(p));
+  if (others.length === 0) return false;
+  if (action !== 'secondChance') return true;
+  if (!state.players[drawnBy]?.hasSecondChance) return false;
+  return others.some(p => !p.hasSecondChance);
+}
+
 function applyAction(state: GameState, index: number, card: ActionCard): GameState {
   const player = state.players[index];
   const pending: PendingAction = { action: card.action, drawnBy: index, cardId: card.id };
@@ -429,10 +448,7 @@ function applyAction(state: GameState, index: number, card: ActionCard): GameSta
     };
   }
 
-  // With nobody else left in the round it can only land on the drawer, so
-  // don't make them click.
-  const others = state.players.filter(p => p.id !== index && isInRound(p));
-  if (others.length === 0) {
+  if (!needsAiming(state, index, card.action)) {
     return resolveAction({ ...state, pendingAction: pending, gameLog: log }, pending, index);
   }
   return { ...state, pendingAction: pending, gameLog: log };
@@ -544,8 +560,9 @@ function finishFlipThree(state: GameState): GameState {
     ? { ...rest, flipThree: { target: run.target, remaining: 0, deferred } }
     : rest;
 
-  const others = queued.players.filter(p => p.id !== run.target && isInRound(p));
-  if (others.length === 0) return resolveAction({ ...queued, pendingAction: pending }, pending, run.target);
+  if (!needsAiming(queued, run.target, next.action)) {
+    return resolveAction({ ...queued, pendingAction: pending }, pending, run.target);
+  }
   return { ...queued, pendingAction: pending };
 }
 

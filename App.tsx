@@ -432,7 +432,13 @@ export default function App() {
     && me?.status === 'active';
 
   const awaitingMyAim = !isSpectator && !!state.pendingAction && state.pendingAction.drawnBy === myIndex;
-  const legalTargets = state.players.filter(p => p.status === 'active').map(p => p.id);
+  const active = state.players.filter(p => p.status === 'active');
+  // A spare Second Chance is the one action card that cannot go anywhere:
+  // only a seat not already holding one can take it.
+  const legalTargets = (state.pendingAction?.action === 'secondChance'
+    ? active.filter(p => !p.hasSecondChance)
+    : active
+  ).map(p => p.id);
 
   // ── Bots: hit or stay ──
   useEffect(() => {

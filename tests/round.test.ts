@@ -192,13 +192,13 @@ describe('the card that just landed', () => {
     expect(state.lastCardId).toBe('n8-');
   });
 
-  it('follows a Second Chance to whoever it was given to', () => {
+  it('follows a spare Second Chance to whoever it was passed to', () => {
     const state = run(
-      table(2, [act('secondChance'), num(4)]),
-      hit(0), aim(0, 1),
+      table(2, [act('secondChance', 'a'), num(1), act('secondChance', 'b')]),
+      hit(0), hit(1), hit(0), aim(0, 1),
     );
     expect(state.players[1].hasSecondChance).toBe(true);
-    expect(state.lastCardId).toBe('a-secondChance-');
+    expect(state.lastCardId).toBe('a-secondChance-b');
   });
 
   it('is cleared when a save takes both cards off the table', () => {
@@ -335,26 +335,47 @@ describe('action cards', () => {
   });
 
   describe('second chance', () => {
-    it('goes to the target and arms them', () => {
-      const state = gameReducer(table(2, [act('secondChance')]), hit(0));
-      const aimed = gameReducer(state, aim(0, 1));
-      expect(aimed.players[1].hasSecondChance).toBe(true);
-      expect(aimed.players[0].hasSecondChance).toBe(false);
+    it('goes to whoever drew it, without asking', () => {
+      const state = gameReducer(table(3, [act('secondChance')]), hit(0));
+      expect(state.pendingAction).toBeNull();
+      expect(state.players[0].hasSecondChance).toBe(true);
+      expect(state.players[1].hasSecondChance).toBe(false);
+      // The turn moves on, rather than sitting on a choice nobody has.
+      expect(state.currentTurn).toBe(1);
     });
 
-    it('is passed on rather than stacked when the target already holds one', () => {
-      const state = run(
+    it('is a choice only once the drawer is already holding one', () => {
+      const armed = gameReducer(
         table(2, [act('secondChance', 'a'), num(1), act('secondChance', 'b')]),
-        hit(0),          // seat 0 draws one
+        hit(0),
       );
-      const armed = gameReducer(state, aim(0, 0));
       expect(armed.players[0].hasSecondChance).toBe(true);
-      const s = run(armed, hit(1), hit(0));
-      // Seat 0 draws the second one and aims it at themselves; it should land
-      // on seat 1 instead, since nobody holds two.
-      const aimed = gameReducer(s, aim(0, 0));
-      expect(aimed.players[0].line.filter(c => c.kind === 'action')).toHaveLength(1);
+
+      const spare = run(armed, hit(1), hit(0));
+      expect(spare.pendingAction?.action).toBe('secondChance');
+
+      const aimed = gameReducer(spare, aim(0, 1));
       expect(aimed.players[1].hasSecondChance).toBe(true);
+      expect(aimed.players[0].line.filter(c => c.kind === 'action')).toHaveLength(1);
+    });
+
+    it('will not let a spare be aimed back at a seat already holding one', () => {
+      const spare = run(
+        table(2, [act('secondChance', 'a'), num(1), act('secondChance', 'b')]),
+        hit(0), hit(1), hit(0),
+      );
+      expect(gameReducer(spare, aim(0, 0))).toBe(spare);
+    });
+
+    it('is discarded without asking when nobody else can take it', () => {
+      const both = run(
+        table(2, [act('secondChance', 'a'), act('secondChance', 'b'), act('secondChance', 'c')]),
+        hit(0), hit(1), hit(0),
+      );
+      expect(both.players[0].hasSecondChance).toBe(true);
+      expect(both.players[1].hasSecondChance).toBe(true);
+      expect(both.pendingAction).toBeNull();
+      expect(both.discard.some(c => c.id === 'a-secondChance-c')).toBe(true);
     });
 
     it('is discarded when everyone already holds one', () => {

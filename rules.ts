@@ -119,10 +119,10 @@ BUST: draw a number you already have and you are out of the round with nothing �
 
 FLIP 7: get ${FLIP_7_COUNT} different numbers in front of you and the round ends immediately for everyone, with ${FLIP_7_BONUS} bonus points to you.
 
-ACTION CARDS: when you draw one, you choose who it lands on — yourself or any other player still in the round. If you are the last one in, it lands on you.
+ACTION CARDS: draw a Freeze or a Flip Three and you choose who it lands on — yourself or any other player still in the round. If you are the last one in, it lands on you. A Second Chance is yours; only a spare has to be given away.
   FREEZE: that player stays right now, banking whatever they have.
   FLIP THREE: that player draws three cards, one at a time. Busting stops the run.
-  SECOND CHANCE: that player holds it against a duplicate. Nobody holds two; a spare goes to someone without one, or is discarded.
+  SECOND CHANCE: you keep it, and it saves you from the first duplicate you draw. Nobody holds two; a spare goes to someone without one, or is discarded.
 
 SCORING: add up your number cards. An x2 doubles that total. Then add the +N modifiers, and ${FLIP_7_BONUS} more if you flipped 7. Busting scores nothing at all.
 
