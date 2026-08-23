@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flip7Card, Player } from '../types';
+import { Flip7Card, Player, PlayerStatus } from '../types';
 import { FLIP_7_COUNT, numbersIn, scoreLine } from '../rules';
 import { Flip7CardFace } from './Flip7Card';
 import { IconFreeze } from './cardArt';
@@ -25,10 +25,13 @@ const STATUS_COLOR: Record<Player['status'], string> = {
  * the same effect, but one of them was a choice and the other was done to
  * you. The snowflake is the same one on the card that did it.
  */
-const StatusBadge: React.FC<{ player: Player }> = ({ player }) => {
-  if (player.status === 'active') return null;
+export const StatusBadge: React.FC<{
+  status: PlayerStatus;
+  frozen?: boolean;
+}> = ({ status, frozen = false }) => {
+  if (status === 'active') return null;
 
-  if (player.frozen) {
+  if (frozen) {
     return (
       <span
         className="text-[10px] uppercase tracking-[0.14em] font-bold inline-flex items-center gap-1"
@@ -44,9 +47,9 @@ const StatusBadge: React.FC<{ player: Player }> = ({ player }) => {
   return (
     <span
       className="text-[10px] uppercase tracking-[0.14em] font-bold"
-      style={{ color: STATUS_COLOR[player.status] }}
+      style={{ color: STATUS_COLOR[status] }}
     >
-      {STATUS_LABEL[player.status]}
+      {STATUS_LABEL[status]}
     </span>
   );
 };
@@ -72,7 +75,7 @@ const bustedOn = (line: Flip7Card[]): number | null => {
  * How close this line is to the seven that ends the round. A busted line is
  * passed nothing: it is not on its way anywhere.
  */
-const Pips: React.FC<{ filled: number }> = ({ filled }) => (
+export const Pips: React.FC<{ filled: number }> = ({ filled }) => (
   <span className="f7-pips" title={`${filled} of ${FLIP_7_COUNT} different numbers`}>
     {Array.from({ length: FLIP_7_COUNT }, (_, i) => (
       <span
@@ -152,7 +155,7 @@ export const PlayerLine: React.FC<{
           {player.total}
         </span>
 
-        <StatusBadge player={player} />
+        <StatusBadge status={player.status} frozen={player.frozen} />
 
         {isTurn && (
           <span
