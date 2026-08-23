@@ -86,31 +86,31 @@ describe('busting', () => {
     expect(state.players[0].line.some(c => c.kind === 'action')).toBe(false);
     // Neither card is anywhere on the table afterwards, so the save is the
     // only record of what happened.
-    expect(state.lastSave).toEqual({ playerIndex: 0, value: 7, seq: 1 });
+    expect(state.lastMoment).toEqual({ kind: 'save', playerIndex: 0, value: 7, seq: 1 });
   });
 
-  it('counts each save, so a resent state does not read as a new one', () => {
+  it('counts each moment, so a resent state does not read as a new one', () => {
     const start = table(1, [
       act('secondChance', '1'), num(7, 'a'), num(7, 'b'),
       act('secondChance', '2'), num(4, 'a'), num(4, 'b'),
     ]);
-    expect(start.lastSave).toBeNull();
+    expect(start.lastMoment).toBeNull();
 
     const first = run(start, hit(0), hit(0), hit(0));
-    expect(first.lastSave).toEqual({ playerIndex: 0, value: 7, seq: 1 });
+    expect(first.lastMoment).toEqual({ kind: 'save', playerIndex: 0, value: 7, seq: 1 });
 
     const second = run(first, hit(0), hit(0), hit(0));
-    expect(second.lastSave).toEqual({ playerIndex: 0, value: 4, seq: 2 });
+    expect(second.lastMoment).toEqual({ kind: 'save', playerIndex: 0, value: 4, seq: 2 });
   });
 
-  it('leaves the save alone when the next duplicate actually busts', () => {
+  it('records the bust that follows as its own moment', () => {
     const saved = run(
       table(1, [act('secondChance'), num(7, 'a'), num(7, 'b'), num(4, 'a'), num(4, 'b')]),
       hit(0), hit(0), hit(0),
     );
     const busted = run(saved, hit(0), hit(0));
     expect(busted.players[0].status).toBe('busted');
-    expect(busted.lastSave).toEqual(saved.lastSave);
+    expect(busted.lastMoment).toEqual({ kind: 'bust', playerIndex: 0, value: 4, seq: 2 });
   });
 
   it('busts on the next duplicate once the Second Chance is gone', () => {
@@ -119,6 +119,32 @@ describe('busting', () => {
       hit(0), hit(0), hit(0), hit(0), hit(0),
     );
     expect(state.players[0].status).toBe('busted');
+  });
+});
+
+describe('moments that end the round in the same dispatch', () => {
+  // endRound runs inside the dispatch that busts the last seat or lands the
+  // seventh number, and it appends a score line per seat. Anything reading
+  // the newest log entry to work out what happened misses both.
+
+  it('records the bust that ends a round', () => {
+    const state = run(
+      table(2, [num(5, 'a'), num(9), num(5, 'b')]),
+      hit(0), stay(1), hit(0), hit(0),
+    );
+    expect(state.gamePhase).toBe('ROUND_OVER');
+    expect(state.players[0].status).toBe('busted');
+    expect(state.lastMoment).toEqual({ kind: 'bust', playerIndex: 0, value: 5, seq: 1 });
+    // The reason the old approach missed it.
+    expect(state.gameLog[state.gameLog.length - 1]).not.toContain('busts');
+  });
+
+  it('records the seventh number, which always ends the round', () => {
+    const seven = [0, 1, 2, 3, 4, 5, 6].map((v, i) => num(v, String(i)));
+    const state = run(table(1, seven), ...seven.map(() => hit(0)));
+    expect(state.gamePhase).toBe('ROUND_OVER');
+    expect(state.lastMoment).toEqual({ kind: 'flip7', playerIndex: 0, seq: 1 });
+    expect(state.gameLog[state.gameLog.length - 1]).not.toContain('flipped 7');
   });
 });
 

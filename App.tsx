@@ -5,16 +5,16 @@ import { Action, gameReducer, INITIAL_STATE, makeEmptyPlayer } from './gameReduc
 import { GameProvider, GameContextValue } from './GameContext';
 import { FeltContent } from './components/FeltContent';
 import { RoundSummary } from './components/RoundSummary';
-import { SaveBanner } from './components/SaveBanner';
+import { MomentBanner, isShownMoment } from './components/MomentBanner';
 import { Lobby } from './views/Lobby';
-import { sounds } from './utils/sound';
+import { MOMENT_CUES, sounds } from './utils/sound';
 import { chooseTarget, shouldHit } from './utils/ai';
 import { MQTT_BROKER, redactForWire, roomTopic } from './utils/net';
 import { clearSession, loadSession, saveSession, SavedSession } from './utils/session';
-import { ChatMessage, GameState, Player, SaveMoment, Spectator } from './types';
+import { ChatMessage, GameState, Player, Spectator, TableMoment } from './types';
 import {
   AI_AIM_DELAY_MS, AI_TURN_DELAY_MS, CHAT_MAX_LEN, EMPTY_SLOT_NAME,
-  FLIP_THREE_STEP_MS, ROUND_END_DELAY_MS, SAVE_SHOW_MS, Z_HUD,
+  FLIP_THREE_STEP_MS, MOMENT_SHOW_MS, ROUND_END_DELAY_MS, Z_HUD,
 } from './constants';
 import { DEFAULT_PLAYERS } from './rules';
 
@@ -386,36 +386,41 @@ export default function App() {
   };
 
 
-  // ── A Second Chance spent, held up for a beat ──
+  // ── What just happened ──
   // Watches the sequence number rather than the object: a client is sent the
   // whole state every few seconds, and each of those is a fresh object that
-  // would otherwise read as another save. Lives here rather than in the table
-  // so that a round ending right after a save does not cut the news short.
-  const [save, setSave] = useState<SaveMoment | null>(null);
-  const seenSaveRef = useRef<number | null>(null);
+  // would otherwise read as another moment. Lives here rather than in the
+  // table so that a round ending right after one does not cut it short.
+  const [moment, setMoment] = useState<TableMoment | null>(null);
+  const seenMomentRef = useRef<number | null>(null);
 
   useEffect(() => {
     // Back in the lobby there is nothing to watch, and the next match starts
     // its count again, so the anchor is dropped here rather than carried over.
     if (state.gamePhase === 'LOBBY') {
-      seenSaveRef.current = null;
-      setSave(null);
+      seenMomentRef.current = null;
+      setMoment(null);
       return;
     }
-    const seq = state.lastSave?.seq ?? 0;
+    const seq = state.lastMoment?.seq ?? 0;
     // The first state this client sees in play is history, not news: joining
-    // a room mid-match, or resuming one, arrives with saves already in it.
-    if (seenSaveRef.current === null) {
-      seenSaveRef.current = seq;
+    // a room mid-match, or resuming one, arrives with moments already in it.
+    if (seenMomentRef.current === null) {
+      seenMomentRef.current = seq;
       return;
     }
-    if (seq === seenSaveRef.current) return;
-    seenSaveRef.current = seq;
-    setSave(state.lastSave);
-    sounds.save();
-    const timer = setTimeout(() => setSave(null), SAVE_SHOW_MS);
+    if (seq === seenMomentRef.current) return;
+    seenMomentRef.current = seq;
+
+    const latest = state.lastMoment;
+    if (!latest) return;
+    MOMENT_CUES[latest.kind]();
+    if (!isShownMoment(latest)) return;
+
+    setMoment(latest);
+    const timer = setTimeout(() => setMoment(null), MOMENT_SHOW_MS);
     return () => clearTimeout(timer);
-  }, [state.lastSave?.seq, state.gamePhase]);
+  }, [state.lastMoment?.seq, state.gamePhase]);
 
   const me = state.players[myIndex];
   const myTurn =
@@ -489,16 +494,6 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [isDriver, state.gamePhase, state.players, state.pendingAction, state.flipThree]);
 
-  // ── Sound for the moments worth hearing ──
-  const lastLogRef = useRef('');
-  useEffect(() => {
-    const latest = state.gameLog[state.gameLog.length - 1] ?? '';
-    if (latest === lastLogRef.current) return;
-    lastLogRef.current = latest;
-    if (latest.includes('busts')) sounds.bust();
-    else if (latest.includes('flipped 7')) sounds.flip7();
-  }, [state.gameLog]);
-
   // ── Chat ──
   const lastChatRef = useRef(0);
   useEffect(() => {
@@ -554,7 +549,7 @@ export default function App() {
       handleDispatch({ type: 'AIM_ACTION', payload: { playerIndex: myIndex, target } });
     },
     freshCardId: state.lastCardId,
-    save,
+    moment,
     startRound: () => { if (isDriver) dispatch({ type: 'START_ROUND' }); },
     returnToLobby: () => handleDispatch({ type: 'RETURN_TO_LOBBY', payload: { playerIndex: myIndex } }),
     logEndRef,
@@ -625,11 +620,11 @@ export default function App() {
             </div>
           )}
 
-          {save && (
-            <SaveBanner
-              save={save}
-              name={state.players[save.playerIndex]?.name ?? 'They'}
-              isMe={save.playerIndex === myIndex}
+          {moment && (
+            <MomentBanner
+              moment={moment}
+              name={state.players[moment.playerIndex]?.name ?? 'They'}
+              isMe={moment.playerIndex === myIndex}
             />
           )}
 

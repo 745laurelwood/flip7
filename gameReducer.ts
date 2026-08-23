@@ -1,6 +1,6 @@
 import {
-  ActionCard, ActionKind, ChatMessage, Flip7Card, GameState, PendingAction,
-  Player, Spectator,
+  ActionCard, ActionKind, ChatMessage, Flip7Card, GameState, MomentKind,
+  PendingAction, Player, Spectator, TableMoment,
 } from './types';
 import { createDeck, drawCard, shuffle } from './utils/deck';
 import { EMPTY_SLOT_NAME, MAX_LOG_ENTRIES, CHAT_MAX_HISTORY, pickBotNames } from './constants';
@@ -39,7 +39,7 @@ export const INITIAL_STATE: GameState = {
   pendingAction: null,
   flipThree: null,
   flipped7By: -1,
-  lastSave: null,
+  lastMoment: null,
   lastCardId: null,
   gameLog: [],
   chatLog: [],
@@ -63,6 +63,16 @@ export const isValidGameState = (s: any): s is GameState =>
 
 const logPush = (log: string[], entry: string): string[] =>
   [...log, entry].slice(-MAX_LOG_ENTRIES);
+
+/** Stamps a moment with the next sequence number. */
+const moment = (
+  state: GameState,
+  kind: MomentKind,
+  playerIndex: number,
+  value?: number,
+): TableMoment => ({
+  kind, playerIndex, value, seq: (state.lastMoment?.seq ?? 0) + 1,
+});
 
 const clampSeats = (n: number): number =>
   Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, Math.round(n)));
@@ -107,7 +117,7 @@ export const gameReducer = (state: GameState, action: Action): GameState => {
         ? {
             ...action.payload,
             chatLog: action.payload.chatLog ?? [],
-            lastSave: action.payload.lastSave ?? null,
+            lastMoment: action.payload.lastMoment ?? null,
             lastCardId: action.payload.lastCardId ?? null,
           }
         : state;
@@ -377,7 +387,7 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
         lastCardId: null,
         // Both cards have just left the table, so the save is recorded rather
         // than shown. Rounds do not reset it: the count is per match.
-        lastSave: { playerIndex: index, value, seq: (state.lastSave?.seq ?? 0) + 1 },
+        lastMoment: moment(state, 'save', index, value),
         gameLog: logPush(state.gameLog, `${player.name} drew a second ${value} — Second Chance saves them`),
       };
     }
@@ -386,6 +396,7 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
       ...state,
       players,
       lastCardId: card.id,
+      lastMoment: moment(state, 'bust', index, value),
       gameLog: logPush(state.gameLog, `${player.name} drew a second ${value} and busts`),
     };
   }
@@ -398,6 +409,7 @@ function applyNumber(state: GameState, index: number, value: number, card: Flip7
     players,
     lastCardId: card.id,
     flipped7By: flipped ? index : state.flipped7By,
+    lastMoment: flipped ? moment(state, 'flip7', index) : state.lastMoment,
     gameLog: logPush(
       state.gameLog,
       flipped

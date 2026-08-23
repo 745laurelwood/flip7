@@ -384,28 +384,32 @@
 }
 .f7-seat--saved { animation: f7-saved 1.1s ease-out 2; }
 
-/* ── The save, held up ────────────────────────────────────────────
-   Both cards are in the discard by the time this renders, so the
-   panel is the only place either of them can be seen. */
+/* ── A moment, held up ────────────────────────────────────────────
+   For the things that leave nothing behind: a Second Chance puts
+   both its cards in the discard, so the panel is the only place
+   either of them can be seen. */
 
-@keyframes f7-save-in {
+@keyframes f7-moment-in {
   0%   { transform: scale(0.93); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
+.f7-moment {
+  animation: f7-moment-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+
 /* The ground stays dark. A paler green would sit right under the Second
    Chance card, which is green itself, and take the punch out of it. */
-.f7-save-panel {
+.f7-moment--save {
   background: rgba(18,52,44,0.55);
   border: 1px solid rgba(127,215,169,0.5);
   box-shadow: 0 0 22px rgba(127,215,169,0.12);
-  animation: f7-save-in 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) both;
 }
 
 /* Tipped into each other, the way the pair lands on the discard. They only
    just touch: any more and the overlap eats the name off the card behind. */
-.f7-save-pair { display: flex; align-items: center; flex: none; }
-.f7-save-pair > :first-child { transform: rotate(-8deg); }
-.f7-save-pair > :last-child { transform: rotate(7deg); margin-left: -0.4rem; }
+.f7-moment-pair { display: flex; align-items: center; flex: none; }
+.f7-moment-pair > :first-child { transform: rotate(-8deg); }
+.f7-moment-pair > :last-child { transform: rotate(7deg); margin-left: -0.4rem; }
 
 /* Seven pips: how close this line is to ending the round. */
 .f7-pips { display: inline-flex; align-items: center; gap: 0.16rem; }
@@ -421,7 +425,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .f7-fresh, .f7-seat--bust, .f7-seat--seven, .f7-seat--saved,
-  .f7-save-panel, .f7-held::before { animation: none; }
+  .f7-moment, .f7-held::before { animation: none; }
   .f7-fresh { opacity: 1; transform: none; }
   .f7-seat--saved { box-shadow: 0 0 0 2px rgba(127,215,169,0.7); }
 }

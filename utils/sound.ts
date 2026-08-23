@@ -1,4 +1,5 @@
 import { sounds as shared, seq } from '@laurelwood/card-class';
+import { MomentKind } from '../types';
 
 /**
  * The shared cue set plus the moments that belong to Flip 7: the sinking
@@ -23,6 +24,13 @@ export const sounds = {
     { freq: 1180, dur: 0.09, type: 'sine' as const, gain: 0.06 },
     { freq: 1560, dur: 0.16, type: 'sine' as const, gain: 0.05, delay: 0.06 },
   ]),
+};
+
+/** The cue for each moment the reducer records. */
+export const MOMENT_CUES: Record<MomentKind, () => void> = {
+  save: sounds.save,
+  bust: sounds.bust,
+  flip7: sounds.flip7,
 };
 
 export { setMuted, isMuted } from '@laurelwood/card-class';
