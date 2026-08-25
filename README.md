@@ -103,4 +103,8 @@ The reducer records what just happened rather than leaving it to be read back ou
 
 They have to. `endRound` runs inside the same dispatch as the bust or the seventh number that ended the round, appending a score line per seat, so anything matching on the newest log entry misses exactly the moments most worth hearing.
 
-There are eight cues: a card landing, a stay, a bust, a Freeze, a Second Chance, a seven, a round ending and a match being won. A card landing is driven off the state rather than the dispatch sites, so everyone at the table hears every card instead of the host hearing only its own, and it stands down when a bust or a save is already sounding.
+The cues themselves are synthesised in `utils/sound.ts` rather than taken from the shared engine, which plays one bare oscillator per note into one gain. That is enough for a chime, and it is why anything built out of it comes out sounding like a test tone. A card landing is not a pitch at all — it is a broadband transient, paper on felt — so no choice of frequency was ever going to make it sound like one.
+
+What is here that the shared engine has none of: filtered noise, gliding pitch, filter envelopes, and a small generated room to decay into, all behind a limiter because cues overlap constantly. A card is a band of noise over a low thump, pitched a little differently every time so that sixty of them in a round do not go mechanical. A bust slides its pitch and its filter cutoff down together, which is what makes it read as dropping rather than as two sad notes in a row. A Freeze is detuned sines over a hiss that thins out as it goes.
+
+There are nine: a card landing, a stay, a bust, a Freeze, a Second Chance, a seven, a round ending, a match being won, and a chat message. A card landing is driven off the state rather than the dispatch sites, so everyone at the table hears every card instead of the host hearing only its own, and it stands down when a bust or a save is already sounding.
